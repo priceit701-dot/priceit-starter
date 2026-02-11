@@ -34,6 +34,74 @@ ALERT_TYPES_ORDER = [
 ]
 ACTION_REQUIRED_TYPES = ["SOLD_OUT", "DELAY_NOTICE", "PRICE_UP", "PRICE_DOWN"]
 
+ITEM_NAME_NOISE_KEYWORDS = [
+    "긴급공지", "중요공지", "공지", "안내", "알림", "배송", "출고", "마감", "확인", "연휴",
+    "품절", "품절안내", "재입고", "입고", "가격인상", "가격인하", "가격변동", "전격 오픈",
+    "인상", "인하", "특가", "필독", "사항", "슈퍼", "명절", "신상품", "오픈", "세일",
+]
+
+PRODUCT_KEYWORDS = [
+    "사과", "부사", "감귤", "딸기", "토마토", "감자", "고구마", "양파", "마늘", "오이",
+    "상추", "시금치", "구좌당근", "당근", "키위", "쌀", "잡곡", "아몬드", "호두", "버즈", "애플워치",
+]
+
+
+def _is_noise_item_name(value: Optional[str]) -> bool:
+    s = _clean_text(value)
+    if not s:
+        return True
+    if len(s) <= 2:
+        return True
+    if re.fullmatch(r"[\W_]+", s):
+        return True
+    if re.match(r"^\d{1,2}월\s*\d{1,2}일", s):
+        return True
+    if any(x in s for x in ["드립니다", "확인", "마감", "흐름", "관련", "사고", "연휴"]):
+        return True
+    if any(x in s for x in ["🔺", "🔻", "⬆", "⬇", "★", "🔥"]) and not any(pk in s for pk in PRODUCT_KEYWORDS):
+        return True
+    if "입고" in s and len(s) >= 8:
+        return True
+    # 상태/공지성 문구가 섞이고 상품 키워드가 없으면 상품명으로 보지 않음
+    hit = sum(1 for k in ITEM_NAME_NOISE_KEYWORDS if k in s)
+    has_product_kw = any(pk in s for pk in PRODUCT_KEYWORDS)
+    if hit >= 1 and not has_product_kw:
+        return True
+    if any(s.startswith(prefix) for prefix in ["공지", "긴급공지", "중요공지", "안내", "알림", "📢"]):
+        return True
+    return False
+
+
+def _extract_market_item_from_text(message_text: Optional[str]) -> Optional[str]:
+    s = _clean_text(message_text)
+    if not s:
+        return None
+    s = re.sub(r"[\[\]{}()<>|]", " ", s)
+    s = re.sub(r"\s+", " ", s)
+    for kw in PRODUCT_KEYWORDS:
+        if kw in s:
+            return kw
+    return None
+
+
+def _best_item_name(product_name: Optional[str], profile_item_name: Optional[str], vendor: Optional[str], message_text: Optional[str] = None) -> tuple[str, str]:
+    p = re.sub(r"\[[^\]]+\]", "", _clean_text(product_name)).strip()
+    prof = re.sub(r"\[[^\]]+\]", "", _clean_text(profile_item_name)).strip()
+    v = _clean_text(vendor)
+
+    if prof and not _is_noise_item_name(prof):
+        return prof, "profile"
+    if p and not _is_noise_item_name(p):
+        return p, "product_name"
+
+    extracted = _extract_market_item_from_text(message_text)
+    if extracted and not _is_noise_item_name(extracted):
+        return extracted, "message_keyword"
+
+    if v and not _is_noise_item_name(v):
+        return v, "vendor"
+    return "미분류 상품", "fallback"
+
 
 def _is_ts_like(value: Optional[str]) -> bool:
     if not value:
@@ -259,9 +327,10 @@ def stats_seller(limit_hours: int = 24, feed_limit: int = 30, action_limit: int 
     for r in cur.fetchall():
         row = dict(r)
         item_fields = _extract_item_fields(row.get("message_text"), vendor=row.get("vendor"))
-        row["item_name"] = _clean_text(row.get("product_name")) or _clean_text(item_fields.get("item_name")) or _clean_text(row.get("vendor"))
-        row["item_name_source"] = "product_name" if _clean_text(row.get("product_name")) else ("profile" if _clean_text(item_fields.get("item_name")) else "vendor")
         row.update(item_fields)
+        best_name, source = _best_item_name(row.get("product_name"), item_fields.get("item_name"), row.get("vendor"), row.get("message_text"))
+        row["item_name"] = best_name
+        row["item_name_source"] = source
         row["change_text"] = _event_change_text(row.get("event_type"), row.get("old_price"), row.get("new_price"))
         recent_feed.append(row)
 
@@ -283,9 +352,10 @@ def stats_seller(limit_hours: int = 24, feed_limit: int = 30, action_limit: int 
     for r in cur.fetchall():
         row = dict(r)
         item_fields = _extract_item_fields(row.get("message_text"), vendor=row.get("vendor"))
-        row["item_name"] = _clean_text(row.get("product_name")) or _clean_text(item_fields.get("item_name")) or _clean_text(row.get("vendor"))
-        row["item_name_source"] = "product_name" if _clean_text(row.get("product_name")) else ("profile" if _clean_text(item_fields.get("item_name")) else "vendor")
         row.update(item_fields)
+        best_name, source = _best_item_name(row.get("product_name"), item_fields.get("item_name"), row.get("vendor"), row.get("message_text"))
+        row["item_name"] = best_name
+        row["item_name_source"] = source
         row["change_text"] = _event_change_text(row.get("event_type"), row.get("old_price"), row.get("new_price"))
         action_items.append(row)
 
@@ -320,16 +390,9 @@ def stats_seller(limit_hours: int = 24, feed_limit: int = 30, action_limit: int 
         return (vendor.lower(), product.lower())
 
     def item_label(row):
-        vendor = clean_text(row.get("vendor"))
-        product = clean_text(row.get("product_name"))
-        if vendor and product:
-            return f"{vendor} / {product}"
-        if product:
-            return product
-        if vendor:
-            return vendor
         extracted = _extract_item_fields(row.get("message_text"), vendor=row.get("vendor"))
-        return extracted.get("item_name") or "미분류 상품"
+        best_name, _ = _best_item_name(row.get("product_name"), extracted.get("item_name"), row.get("vendor"), row.get("message_text"))
+        return best_name
 
     def price_evidence(row):
         old_price = row.get("old_price")

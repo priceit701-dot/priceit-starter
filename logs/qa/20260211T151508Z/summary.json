@@ -1,0 +1,245 @@
+{
+  "run_id": "20260211T151508Z",
+  "started_at": "2026-02-11T15:15:08Z",
+  "finished_at": "2026-02-11T15:15:09Z",
+  "overall_status": "PASS",
+  "counts": {
+    "total": 5,
+    "pass": 5,
+    "fail": 0
+  },
+  "checks": [
+    {
+      "name": "api_health_endpoints",
+      "status": "PASS",
+      "code": "API_OK",
+      "detail": "핵심 API 및 dashboard 엔드포인트 응답/키 확인",
+      "evidence": {
+        "status_codes": {
+          "/health": 200,
+          "/stats/summary": 200,
+          "/stats/quality?limit_hours=24": 200,
+          "/events/recent?limit=5": 200,
+          "/dashboard": 200
+        },
+        "summary": {
+          "messages": 37694,
+          "events": 1840,
+          "last_message_at": "2026-02-12T00:08:52",
+          "top_rooms": [
+            {
+              "room": "최고집 경북농산물유통센터 / B2B / 초보셀러환영",
+              "count": 1391
+            },
+            {
+              "room": "최고집",
+              "count": 1133
+            },
+            {
+              "room": "과일위탁판매 팜허브 과일 농산물 셀러모집",
+              "count": 883
+            },
+            {
+              "room": "오픈채팅_01",
+              "count": 670
+            },
+            {
+              "room": "오픈채팅_02",
+              "count": 670
+            },
+            {
+              "room": "오픈채팅_03",
+              "count": 670
+            },
+            {
+              "room": "오픈채팅_04",
+              "count": 670
+            },
+            {
+              "room": "오픈채팅_05",
+              "count": 670
+            },
+            {
+              "room": "오픈채팅_06",
+              "count": 670
+            },
+            {
+              "room": "오픈채팅_07",
+              "count": 670
+            },
+            {
+              "room": "오픈채팅_08",
+              "count": 670
+            },
+            {
+              "room": "오픈채팅_21",
+              "count": 663
+            },
+            {
+              "room": "오픈채팅_22",
+              "count": 663
+            },
+            {
+              "room": "오픈채팅_23",
+              "count": 663
+            },
+            {
+              "room": "오픈채팅_24",
+              "count": 663
+            },
+            {
+              "room": "오픈채팅_25",
+              "count": 663
+            },
+            {
+              "room": "오픈채팅_09",
+              "count": 662
+            },
+            {
+              "room": "오픈채팅_10",
+              "count": 662
+            },
+            {
+              "room": "오픈채팅_11",
+              "count": 662
+            },
+            {
+              "room": "오픈채팅_12",
+              "count": 662
+            }
+          ],
+          "events_by_type": [
+            {
+              "type": "RESTOCK",
+              "count": 629
+            },
+            {
+              "type": "PRICE_DOWN",
+              "count": 366
+            },
+            {
+              "type": "NOTICE",
+              "count": 351
+            },
+            {
+              "type": "SOLD_OUT",
+              "count": 234
+            },
+            {
+              "type": "NEW_ITEM",
+              "count": 112
+            },
+            {
+              "type": "DELAY_NOTICE",
+              "count": 101
+            },
+            {
+              "type": "PRICE_UP",
+              "count": 40
+            },
+            {
+              "type": "PRICE_SEEN",
+              "count": 5
+            },
+            {
+              "type": "SOLD_OUT_RISK",
+              "count": 2
+            }
+          ]
+        },
+        "quality_keys": [
+          "hours",
+          "event_quality",
+          "skip_reasons"
+        ],
+        "recent_count": 5
+      },
+      "repro_command": "python3 automation/qa_agent.py --only api"
+    },
+    {
+      "name": "parser_regression",
+      "status": "PASS",
+      "code": "PARSER_OK",
+      "detail": "핵심 파서 회귀 케이스 통과",
+      "evidence": {
+        "cases": 4,
+        "failed": 0
+      },
+      "repro_command": "python3 automation/qa_agent.py --only parser"
+    },
+    {
+      "name": "notifier_idempotency_retry",
+      "status": "PASS",
+      "code": "NOTIFIER_OK",
+      "detail": "재시도 후 성공 + 중복키 재전송 skip 확인",
+      "evidence": {
+        "first": true,
+        "second": true,
+        "sent_events": 1,
+        "dedup_events": 1,
+        "history_tail": [
+          {
+            "event": "sent",
+            "key": "qa-key-1",
+            "attempt": 3,
+            "status_code": 200,
+            "ts": 1770822909.1581628
+          },
+          {
+            "event": "dedup_skip",
+            "key": "qa-key-1",
+            "text_head": "qa notifier check",
+            "ts": 1770822909.1583118
+          }
+        ]
+      },
+      "repro_command": "python3 automation/qa_agent.py --only notifier"
+    },
+    {
+      "name": "dashboard_static_links_coredata",
+      "status": "PASS",
+      "code": "DASHBOARD_OK",
+      "detail": "대시보드 정적 파일/링크/핵심 데이터 로딩 확인",
+      "evidence": {
+        "dashboard_status": 200,
+        "missing_links": [],
+        "messages": 37694,
+        "events": 1840
+      },
+      "repro_command": "python3 automation/qa_agent.py --only dashboard"
+    },
+    {
+      "name": "controller_evidence_contract",
+      "status": "PASS",
+      "code": "CONTROLLER_RULE_OK",
+      "detail": "PASS/FAIL evidence 규약 검증 로직 확인",
+      "evidence": {
+        "pass_case": {
+          "pass": true,
+          "code": "PASS",
+          "evidence": {
+            "step": "qa",
+            "status": "PASS",
+            "checks": 5,
+            "failed": 0,
+            "proof_ts": "2026-02-12T00:00:00"
+          }
+        },
+        "fail_case": {
+          "pass": false,
+          "code": "EVIDENCE_FAIL_COUNT_MISMATCH",
+          "evidence": {
+            "step": "qa",
+            "status": "PASS",
+            "checks": 5,
+            "failed": 2,
+            "proof_ts": "2026-02-12T00:00:00"
+          }
+        }
+      },
+      "repro_command": "python3 automation/qa_agent.py --only controller"
+    }
+  ],
+  "failure_codes": [],
+  "repro_commands": []
+}

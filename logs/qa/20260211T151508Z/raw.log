@@ -1,0 +1,14 @@
+[2026-02-11T15:15:08Z] QA_RUN_START run_id=20260211T151508Z only=None
+[2026-02-11T15:15:09Z] API GET /health -> 200
+[2026-02-11T15:15:09Z] API GET /stats/summary -> 200
+[2026-02-11T15:15:09Z] API GET /stats/quality?limit_hours=24 -> 200
+[2026-02-11T15:15:09Z] API GET /events/recent?limit=5 -> 200
+[2026-02-11T15:15:09Z] API GET /dashboard -> 200
+[2026-02-11T15:15:09Z] PARSER input='#가격인상' expected=PRICE_UP actual=PRICE_UP
+[2026-02-11T15:15:09Z] PARSER input='팜허브 입고 지연으로 순차출고 예정입니다' expected=DELAY_NOTICE actual=DELAY_NOTICE
+[2026-02-11T15:15:09Z] PARSER input="📌신규상품 'A급 남해 보물초 시금치' 11,700원" expected=NEW_ITEM actual=NEW_ITEM
+[2026-02-11T15:15:09Z] PARSER input='[품절 안내] 샤인머스켓 특품' expected=SOLD_OUT actual=SOLD_OUT
+[2026-02-11T15:15:09Z] NOTIFIER first=True second=True sent=1 dedup=1
+[2026-02-11T15:15:09Z] DASHBOARD file_exists=True endpoint=200 missing_links=[]
+[2026-02-11T15:15:09Z] CONTROLLER v_pass={'pass': True, 'code': 'PASS', 'evidence': {'step': 'qa', 'status': 'PASS', 'checks': 5, 'failed': 0, 'proof_ts': '2026-02-12T00:00:00'}} v_fail={'pass': False, 'code': 'EVIDENCE_FAIL_COUNT_MISMATCH', 'evidence': {'step': 'qa', 'status': 'PASS', 'checks': 5, 'failed': 2, 'proof_ts': '2026-02-12T00:00:00'}}
+[2026-02-11T15:15:09Z] QA_RUN_END status=PASS pass=5 fail=0

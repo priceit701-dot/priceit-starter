@@ -3,5 +3,7 @@
   "cycle_sec": 5,
   "executor_command": "",
   "require_next_step_token": "NEXT_STEP_OK",
-  "require_evidence_token": "EVIDENCE:"
+  "require_evidence_token": "EVIDENCE:",
+  "max_retry": 3,
+  "recovery_command": ""
 }

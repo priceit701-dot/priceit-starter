@@ -317,17 +317,26 @@ def _extract_market_item_from_text(message_text: Optional[str]) -> Optional[str]
     return None
 
 
+def _sanitize_item_candidate(value: Optional[str]) -> str:
+    s = _clean_text(value)
+    if not s:
+        return ""
+    s = re.sub(r"^[#📢📌🔔🚨⚠️⭐✨🔥\-\s]+", "", s)
+    s = re.sub(r"\s+", " ", s).strip(" -:/")
+    return s
+
+
 def _best_item_name(product_name: Optional[str], profile_item_name: Optional[str], vendor: Optional[str], message_text: Optional[str] = None) -> tuple[str, str]:
-    p = re.sub(r"\[[^\]]+\]", "", _clean_text(product_name)).strip()
-    prof = re.sub(r"\[[^\]]+\]", "", _clean_text(profile_item_name)).strip()
-    v = _clean_text(vendor)
+    p = _sanitize_item_candidate(re.sub(r"\[[^\]]+\]", "", _clean_text(product_name)).strip())
+    prof = _sanitize_item_candidate(re.sub(r"\[[^\]]+\]", "", _clean_text(profile_item_name)).strip())
+    v = _sanitize_item_candidate(vendor)
 
     if prof and not _is_noise_item_name(prof):
         return prof, "profile"
     if p and not _is_noise_item_name(p):
         return p, "product_name"
 
-    extracted = _extract_market_item_from_text(message_text)
+    extracted = _sanitize_item_candidate(_extract_market_item_from_text(message_text))
     if extracted and not _is_noise_item_name(extracted):
         return extracted, "message_keyword"
 

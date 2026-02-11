@@ -191,6 +191,8 @@ def collect_cycle(base_room_name: str, rooms_per_cycle: int, last_sig_by_room: d
     scanned = 0
     skipped_noise = 0
     skipped_same = 0
+    same_sig_streak = 0
+    prev_sig = None
 
     try:
         # 첫 방에서 시작
@@ -211,11 +213,22 @@ def collect_cycle(base_room_name: str, rooms_per_cycle: int, last_sig_by_room: d
                 continue
 
             sig = _text_sig(text)
+            if prev_sig == sig:
+                same_sig_streak += 1
+            else:
+                same_sig_streak = 0
+            prev_sig = sig
+
+            # room switch가 실제로 안 되고 같은 화면만 반복될 때 조기 감지
+            if same_sig_streak >= 8:
+                raise FocusError("room switching appears stuck (same screen repeatedly)")
+
             if last_sig_by_room.get(room_name) == sig:
                 skipped_same += 1
-            else:
-                last_sig_by_room[room_name] = sig
-                total_added += _ingest_text(room_name, text)
+
+            # 핵심: 시그니처 동일여부와 무관하게 항상 ingest 시도(중복은 DB hash가 차단)
+            last_sig_by_room[room_name] = sig
+            total_added += _ingest_text(room_name, text)
 
             _move_next_room()
             time.sleep(ROOM_SWITCH_DELAY_SEC)

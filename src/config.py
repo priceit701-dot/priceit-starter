@@ -11,3 +11,5 @@ KAKAO_ROOM_NAME = os.getenv("KAKAO_ROOM_NAME", "오픈채팅")
 COLLECT_INTERVAL_SEC = int(os.getenv("COLLECT_INTERVAL_SEC", "20"))
 ROOMS_PER_CYCLE = int(os.getenv("ROOMS_PER_CYCLE", "50"))
 ROOM_SWITCH_DELAY_SEC = float(os.getenv("ROOM_SWITCH_DELAY_SEC", "0.7"))
+# 사용자 작업 간섭 완화: 일정 시간 유휴일 때만 수집
+COLLECT_ONLY_WHEN_IDLE_SEC = float(os.getenv("COLLECT_ONLY_WHEN_IDLE_SEC", "8"))

@@ -14,6 +14,7 @@ A안 자동 수집기 (macOS, KakaoTalk 데스크톱)
 import fcntl
 import hashlib
 import os
+import re
 import subprocess
 import time
 from contextlib import contextmanager
@@ -25,6 +26,7 @@ from .config import (
     COLLECT_INTERVAL_SEC,
     ROOMS_PER_CYCLE,
     ROOM_SWITCH_DELAY_SEC,
+    COLLECT_ONLY_WHEN_IDLE_SEC,
 )
 from .db import init_db
 from .pipeline import ingest_line
@@ -80,9 +82,14 @@ def _frontmost_app_name() -> str:
     return (p.stdout or "").strip()
 
 
+def _activate_app(app_name: str):
+    _run_applescript(f'tell application "{app_name}" to activate')
+    time.sleep(0.25)
+
+
 def _activate_kakao():
-    _run_applescript('tell application "KakaoTalk" to activate')
-    time.sleep(0.5)
+    _activate_app("KakaoTalk")
+    time.sleep(0.25)
 
 
 def _assert_kakao_focus():
@@ -143,6 +150,22 @@ def _text_sig(text: str) -> str:
     return hashlib.sha1(text.encode("utf-8", errors="ignore")).hexdigest()
 
 
+def _idle_seconds() -> float:
+    """macOS HID idle seconds (best-effort)."""
+    p = subprocess.run(
+        ["ioreg", "-c", "IOHIDSystem"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    out = p.stdout or ""
+    m = re.search(r'"HIDIdleTime"\s*=\s*(\d+)', out)
+    if not m:
+        return 0.0
+    # ns -> s
+    return int(m.group(1)) / 1_000_000_000.0
+
+
 def _ingest_text(room_name: str, text: str) -> int:
     count = 0
     for line in text.splitlines():
@@ -160,6 +183,7 @@ def _ingest_text(room_name: str, text: str) -> int:
 
 
 def collect_cycle(base_room_name: str, rooms_per_cycle: int, last_sig_by_room: dict) -> int:
+    prev_app = _frontmost_app_name()
     _activate_kakao()
     _assert_kakao_focus()
 
@@ -168,32 +192,37 @@ def collect_cycle(base_room_name: str, rooms_per_cycle: int, last_sig_by_room: d
     skipped_noise = 0
     skipped_same = 0
 
-    # 첫 방에서 시작
-    _key(36)
-    time.sleep(ROOM_SWITCH_DELAY_SEC)
+    try:
+        # 첫 방에서 시작
+        _key(36)
+        time.sleep(ROOM_SWITCH_DELAY_SEC)
 
-    for i in range(rooms_per_cycle):
-        scanned += 1
-        room_name = f"{base_room_name}_{i+1:02d}"
+        for i in range(rooms_per_cycle):
+            scanned += 1
+            room_name = f"{base_room_name}_{i+1:02d}"
 
-        _assert_kakao_focus()
-        text = _copy_chat_text()
+            _assert_kakao_focus()
+            text = _copy_chat_text()
 
-        if _looks_like_noise_dump(text):
-            skipped_noise += 1
+            if _looks_like_noise_dump(text):
+                skipped_noise += 1
+                _move_next_room()
+                time.sleep(ROOM_SWITCH_DELAY_SEC)
+                continue
+
+            sig = _text_sig(text)
+            if last_sig_by_room.get(room_name) == sig:
+                skipped_same += 1
+            else:
+                last_sig_by_room[room_name] = sig
+                total_added += _ingest_text(room_name, text)
+
             _move_next_room()
             time.sleep(ROOM_SWITCH_DELAY_SEC)
-            continue
-
-        sig = _text_sig(text)
-        if last_sig_by_room.get(room_name) == sig:
-            skipped_same += 1
-        else:
-            last_sig_by_room[room_name] = sig
-            total_added += _ingest_text(room_name, text)
-
-        _move_next_room()
-        time.sleep(ROOM_SWITCH_DELAY_SEC)
+    finally:
+        # 사용자 작업 앱으로 복귀 시도
+        if prev_app and prev_app != "KakaoTalk":
+            _activate_app(prev_app)
 
     print(
         f"cycle stats | scanned={scanned} added={total_added} skipped_same={skipped_same} skipped_noise={skipped_noise}",
@@ -212,8 +241,15 @@ def main():
     last_sig_by_room = {}
     while True:
         try:
-            added = collect_cycle(KAKAO_ROOM_NAME, ROOMS_PER_CYCLE, last_sig_by_room)
-            print(f"[{datetime.now().strftime('%H:%M:%S')}] cycle done +{added}", flush=True)
+            idle_s = _idle_seconds()
+            if COLLECT_ONLY_WHEN_IDLE_SEC > 0 and idle_s < COLLECT_ONLY_WHEN_IDLE_SEC:
+                print(
+                    f"[{datetime.now().strftime('%H:%M:%S')}] skip cycle (user active, idle={idle_s:.1f}s)",
+                    flush=True,
+                )
+            else:
+                added = collect_cycle(KAKAO_ROOM_NAME, ROOMS_PER_CYCLE, last_sig_by_room)
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] cycle done +{added}", flush=True)
         except FocusError as e:
             print(f"collector focus warning: {e}", flush=True)
         except KeyboardInterrupt:

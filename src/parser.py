@@ -1,4 +1,6 @@
+import json
 import re
+from pathlib import Path
 from dataclasses import dataclass
 from typing import Optional
 
@@ -9,6 +11,19 @@ UP_KEYWORDS = ["인상", "올랐", "상승"]
 DOWN_KEYWORDS = ["인하", "내렸", "떨", "할인"]
 SOLD_OUT_KEYWORDS = ["품절", "sold out", "솔드아웃"]
 RESTOCK_KEYWORDS = ["재입고", "입고", "복구"]
+
+
+def _load_vendor_aliases():
+    p = Path(__file__).resolve().parent.parent / "data" / "vendor_aliases.json"
+    if not p.exists():
+        return {}
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+VENDOR_ALIASES = _load_vendor_aliases()
 
 
 @dataclass
@@ -29,7 +44,20 @@ def _parse_price(text: str):
 
 def _parse_vendor(text: str):
     m = VENDOR_RE.search(text)
-    return m.group("vendor").strip() if m else None
+    if m:
+        raw = m.group("vendor").strip()
+        low = raw.lower()
+        for canonical, aliases in VENDOR_ALIASES.items():
+            if low == canonical.lower() or any(low == a.lower() for a in aliases):
+                return canonical
+        return raw
+
+    low_text = text.lower()
+    for canonical, aliases in VENDOR_ALIASES.items():
+        keys = [canonical] + aliases
+        if any(k.lower() in low_text for k in keys):
+            return canonical
+    return None
 
 
 def _parse_product(text: str):

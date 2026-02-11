@@ -34,6 +34,8 @@ ALERT_TYPES_ORDER = [
 ]
 ACTION_REQUIRED_TYPES = ["SOLD_OUT", "DELAY_NOTICE", "PRICE_UP", "PRICE_DOWN"]
 
+FOCUS_ROOM_FILTER_SQL = " and (room_name like '최고집%' or room_name like '%팜허브%') "
+
 ITEM_NAME_NOISE_KEYWORDS = [
     "긴급공지", "중요공지", "공지", "안내", "알림", "배송", "출고", "마감", "확인", "연휴",
     "품절", "품절안내", "재입고", "입고", "가격인상", "가격인하", "가격변동", "전격 오픈",
@@ -315,6 +317,7 @@ def stats_seller(limit_hours: int = 24, feed_limit: int = 30, action_limit: int 
 
     placeholders = ",".join(["?"] * len(ALERT_TYPES_ORDER))
     room_filter = "" if include_bench else " and room_name not like 'bench_room_%' "
+    room_filter += FOCUS_ROOM_FILTER_SQL
     cur.execute(
         f"""
         select event_type, count(*) c

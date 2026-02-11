@@ -1,0 +1,124 @@
+{
+  "audit_date": "20260212",
+  "executed_at": "2026-02-12T06:13:34.340033",
+  "db_path": "/Users/sanghun/.openclaw/workspace/priceit-starter/data/priceit.db",
+  "apply_mode": true,
+  "backup_file": null,
+  "definitions": {
+    "messages": "중복 정의: room_name + sender(NULL→'') + message_text + created_at가 동일한 레코드",
+    "events": "중복 정의: message_id + event_type + vendor(NULL→'') + product_name(NULL→'') + created_at가 동일한 레코드",
+    "products": "중복 정의: canonical_key(공백/NULL 제외)가 동일한 레코드",
+    "alarm_summary": "중복 정의: v_events_alarm 기준 room_name + event_type_std + vendor_std(NULL→'') + product_std(NULL→'') + created_at + message_id(NULL→-1)가 동일한 이벤트"
+  },
+  "pre": {
+    "targets": {
+      "messages": {
+        "definition": "중복 정의: room_name + sender(NULL→'') + message_text + created_at가 동일한 레코드",
+        "duplicate_groups": 0,
+        "duplicate_rows": 0
+      },
+      "events": {
+        "definition": "중복 정의: message_id + event_type + vendor(NULL→'') + product_name(NULL→'') + created_at가 동일한 레코드",
+        "duplicate_groups": 0,
+        "duplicate_rows": 0
+      },
+      "products": {
+        "definition": "중복 정의: canonical_key(공백/NULL 제외)가 동일한 레코드",
+        "duplicate_groups": 0,
+        "duplicate_rows": 0
+      },
+      "alarm_summary": {
+        "definition": "중복 정의: v_events_alarm 기준 room_name + event_type_std + vendor_std(NULL→'') + product_std(NULL→'') + created_at + message_id(NULL→-1)가 동일한 이벤트",
+        "duplicate_groups": 0,
+        "duplicate_rows": 0
+      }
+    },
+    "alarm_type_counts": [
+      {
+        "event_type_std": "RESTOCK",
+        "count": 629
+      },
+      {
+        "event_type_std": "PRICE_DOWN",
+        "count": 366
+      },
+      {
+        "event_type_std": "NOTICE",
+        "count": 356
+      },
+      {
+        "event_type_std": "SOLD_OUT",
+        "count": 236
+      },
+      {
+        "event_type_std": "NEW_ITEM",
+        "count": 112
+      },
+      {
+        "event_type_std": "DELAY_NOTICE",
+        "count": 101
+      },
+      {
+        "event_type_std": "PRICE_UP",
+        "count": 40
+      }
+    ]
+  },
+  "post": {
+    "targets": {
+      "messages": {
+        "definition": "중복 정의: room_name + sender(NULL→'') + message_text + created_at가 동일한 레코드",
+        "duplicate_groups": 0,
+        "duplicate_rows": 0
+      },
+      "events": {
+        "definition": "중복 정의: message_id + event_type + vendor(NULL→'') + product_name(NULL→'') + created_at가 동일한 레코드",
+        "duplicate_groups": 0,
+        "duplicate_rows": 0
+      },
+      "products": {
+        "definition": "중복 정의: canonical_key(공백/NULL 제외)가 동일한 레코드",
+        "duplicate_groups": 0,
+        "duplicate_rows": 0
+      },
+      "alarm_summary": {
+        "definition": "중복 정의: v_events_alarm 기준 room_name + event_type_std + vendor_std(NULL→'') + product_std(NULL→'') + created_at + message_id(NULL→-1)가 동일한 이벤트",
+        "duplicate_groups": 0,
+        "duplicate_rows": 0
+      }
+    },
+    "alarm_type_counts": [
+      {
+        "event_type_std": "RESTOCK",
+        "count": 629
+      },
+      {
+        "event_type_std": "PRICE_DOWN",
+        "count": 366
+      },
+      {
+        "event_type_std": "NOTICE",
+        "count": 356
+      },
+      {
+        "event_type_std": "SOLD_OUT",
+        "count": 236
+      },
+      {
+        "event_type_std": "NEW_ITEM",
+        "count": 112
+      },
+      {
+        "event_type_std": "DELAY_NOTICE",
+        "count": 101
+      },
+      {
+        "event_type_std": "PRICE_UP",
+        "count": 40
+      }
+    ]
+  },
+  "rollback": {
+    "restore_command": "No-op (no changes applied)"
+  }
+}

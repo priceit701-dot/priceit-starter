@@ -228,7 +228,8 @@ pragma index_list('events');
 ## 5) 산출물 파일
 
 - 문서: `docs/plan/db-cleanup-plan.md`
-- 진단 스크립트: `scripts/db_audit.py`
+- 거버넌스: `docs/plan/validation-governance.md`
+- 진단 스크립트: `scripts/db_audit.py`, `scripts/dedup_audit.py`
 - SQL 초안:
   - `sql/20260212_db_cleanup_phase1_nondisruptive.sql`
   - `sql/20260212_db_cleanup_phase2_gradual_migration.sql`

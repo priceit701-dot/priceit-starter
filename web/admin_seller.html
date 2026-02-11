@@ -58,10 +58,15 @@
     </section>
 
     <section class="panel">
-      <h2 class="section-title">3) 상품별 변경 내용 (사람이 읽는 문장)</h2>
+      <h2 class="section-title">3) 상품별 변경 내용 (상품명 우선)</h2>
       <table>
         <thead><tr><th>상품</th><th>핵심 변경</th><th>근거(빈도/폭/최근)</th><th>룸</th></tr></thead>
         <tbody id="changeRows"><tr><td colspan="4" class="muted">로딩 중...</td></tr></tbody>
+      </table>
+      <h3 style="margin:12px 0 8px;font-size:14px" class="muted">미분류 항목 (분리)</h3>
+      <table>
+        <thead><tr><th>상품</th><th>핵심 변경</th><th>근거(빈도/폭/최근)</th><th>룸</th></tr></thead>
+        <tbody id="changeRowsUnclassified"><tr><td colspan="4" class="muted">로딩 중...</td></tr></tbody>
       </table>
     </section>
 
@@ -118,15 +123,26 @@ function renderHeadline(d){
   document.getElementById('headlineKpi').innerHTML=cards.map(x=>`<div class='card'><div class='k'>${x.k}</div><div class='v ${x.c}'>${num(x.v)}</div></div>`).join('');
   document.getElementById('evidenceBox').innerText=`근거: 최근 ${d?.evidence_fields?.window_hours??'-'}시간, 생성시각 ${fmt(d?.evidence_fields?.generated_at)}, 액션 ${num(d?.evidence_fields?.action_item_count||0)}건 / 리스크 ${num(d?.evidence_fields?.stock_risk_count||0)}건`;
 }
-function renderChangeRows(rows){
-  const el=document.getElementById('changeRows');
-  if(!rows?.length){el.innerHTML="<tr><td colspan='4' class='muted'>데이터 없음</td></tr>";return;}
-  el.innerHTML=rows.map(x=>`<tr>
+function rowHtml(x){
+  return `<tr>
     <td>${esc(x.item||'-')}</td>
     <td>${esc(x.human_summary||'-')}</td>
     <td>빈도 ${num(x.event_count)} / 최대변동 ${x.max_abs_price_change_pct==null?'-':`${x.max_abs_price_change_pct}%`} / 최근 ${fmt(x.last_event_at)}</td>
     <td>${esc((x.recent_rooms||[]).join(', ')||'-')}</td>
-  </tr>`).join('');
+  </tr>`;
+}
+function renderChangeRows(rows){
+  const el=document.getElementById('changeRows');
+  const unEl=document.getElementById('changeRowsUnclassified');
+  if(!rows?.length){
+    el.innerHTML="<tr><td colspan='4' class='muted'>데이터 없음</td></tr>";
+    unEl.innerHTML="<tr><td colspan='4' class='muted'>데이터 없음</td></tr>";
+    return;
+  }
+  const named=(rows||[]).filter(x=>(x.item||'').trim() && (x.item||'').trim()!=='미분류 상품');
+  const unclassified=(rows||[]).filter(x=>(x.item||'').trim()==='미분류 상품' || !(x.item||'').trim());
+  el.innerHTML=named.length?named.map(rowHtml).join(''):"<tr><td colspan='4' class='muted'>상품명 있는 항목 없음</td></tr>";
+  unEl.innerHTML=unclassified.length?unclassified.map(rowHtml).join(''):"<tr><td colspan='4' class='muted'>미분류 항목 없음</td></tr>";
 }
 function renderRecommendations(items){
   const el=document.getElementById('recommendRows');

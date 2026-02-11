@@ -3,80 +3,28 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Priceit OpenChat Dashboard</title>
+  <title>Priceit Dashboard Launcher</title>
   <style>
-    body{font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; margin:20px; background:#0f1115; color:#e8ecf1}
-    .row{display:flex; gap:12px; flex-wrap:wrap}
-    .card{background:#171a21; border:1px solid #2a3040; border-radius:10px; padding:12px; min-width:220px}
-    h1{font-size:20px}
-    table{width:100%; border-collapse:collapse; margin-top:10px}
-    th,td{border-bottom:1px solid #2a3040; padding:6px; text-align:left; font-size:13px}
-    .muted{color:#9aa5b1; font-size:12px}
-    .pill{display:inline-block;padding:2px 8px;border:1px solid #2a3040;border-radius:999px;font-size:12px;color:#a9b6c6}
-    .danger{color:#ff7f7f}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;padding:22px;background:#0f1115;color:#e8ecf1}
+    h1{margin:0 0 8px 0;font-size:22px}
+    .muted{color:#9aa5b1;font-size:13px}
+    .grid{margin-top:16px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .card{display:block;text-decoration:none;color:inherit;background:#171a21;border:1px solid #2a3040;border-radius:12px;padding:14px}
+    .card:hover{border-color:#4b67a3;transform:translateY(-1px)}
+    .title{font-size:17px;margin-bottom:4px}.tag{font-size:12px;color:#9fb0cf}
+    @media (max-width:780px){.grid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
-  <h1>OpenChat 운영 대시보드 <span class="pill">MVP v3</span></h1>
-  <div class="row">
-    <div class="card"><div>메시지</div><h2 id="msg">-</h2></div>
-    <div class="card"><div>이벤트</div><h2 id="ev">-</h2></div>
-    <div class="card"><div>마지막 메시지</div><h3 id="last">-</h3></div>
+  <h1>OpenChat 운영 대시보드 런처</h1>
+  <div class="muted">요구사항 v7: 아래 5개 시안은 동일 API(/stats/summary, /stats/quality, /events/recent)를 사용합니다.</div>
+
+  <div class="grid">
+    <a class="card" href="/dashboard_v1.html"><div class="title">v1 미니멀 운영형</div><div class="tag">핵심 지표 + 기본 테이블, 단순 운영 체크</div></a>
+    <a class="card" href="/dashboard_v2.html"><div class="title">v2 KPI 카드 중심형</div><div class="tag">카드 KPI + 요약 리스트 중심</div></a>
+    <a class="card" href="/dashboard_v3.html"><div class="title">v3 테이블/분석형</div><div class="tag">분석 테이블 중심, 모노스페이스 뷰</div></a>
+    <a class="card" href="/dashboard_v4.html"><div class="title">v4 타임라인 모니터링형</div><div class="tag">이벤트 흐름 관찰용 타임라인 중심</div></a>
+    <a class="card" href="/dashboard_v5.html"><div class="title">v5 다크모드 관제형</div><div class="tag">관제실 스타일 다크 UI + 이벤트 스트림</div></a>
   </div>
-
-  <div class="row" style="margin-top:12px">
-    <div class="card" style="flex:1; min-width:340px">
-      <h3>이벤트 유형</h3>
-      <table id="types"></table>
-    </div>
-    <div class="card" style="flex:1; min-width:340px">
-      <h3>상위 룸</h3>
-      <table id="rooms"></table>
-    </div>
-  </div>
-
-  <div class="row" style="margin-top:12px">
-    <div class="card" style="flex:1; min-width:340px">
-      <h3>스킵 사유(24h)</h3>
-      <table id="skips"></table>
-    </div>
-    <div class="card" style="flex:2; min-width:440px">
-      <h3>최근 이벤트</h3>
-      <table id="recent"></table>
-    </div>
-  </div>
-
-  <p class="muted" id="updated"></p>
-
-<script>
-async function load(){
-  const [s, q, e] = await Promise.all([
-    fetch('/stats/summary').then(r=>r.json()),
-    fetch('/stats/quality?limit_hours=24').then(r=>r.json()),
-    fetch('/events/recent?limit=20').then(r=>r.json())
-  ])
-
-  document.getElementById('msg').textContent = s.messages
-  document.getElementById('ev').textContent = s.events
-  document.getElementById('last').textContent = s.last_message_at || '-'
-
-  document.getElementById('types').innerHTML = '<tr><th>type</th><th>count</th></tr>' +
-    s.events_by_type.map(x=>`<tr><td>${x.type}</td><td>${x.count}</td></tr>`).join('')
-
-  document.getElementById('rooms').innerHTML = '<tr><th>room</th><th>count</th></tr>' +
-    s.top_rooms.map(x=>`<tr><td>${x.room}</td><td>${x.count}</td></tr>`).join('')
-
-  const skips = q.skip_reasons || []
-  document.getElementById('skips').innerHTML = '<tr><th>reason</th><th>count</th></tr>' +
-    (skips.length ? skips.map(x=>`<tr><td>${x.reason}</td><td class="danger">${x.count}</td></tr>`).join('') : '<tr><td colspan="2">no skips</td></tr>')
-
-  const recent = e.items || []
-  document.getElementById('recent').innerHTML = '<tr><th>time</th><th>type</th><th>vendor/product</th><th>conf</th></tr>' +
-    recent.map(x=>`<tr><td>${x.created_at}</td><td>${x.event_type}</td><td>${x.vendor || '-'} / ${x.product_name || '-'}</td><td>${x.confidence ?? '-'}</td></tr>`).join('')
-
-  document.getElementById('updated').textContent = 'updated: ' + new Date().toLocaleString()
-}
-load(); setInterval(load, 7000)
-</script>
 </body>
 </html>

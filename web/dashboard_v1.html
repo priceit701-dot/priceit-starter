@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Dashboard v1 - 미니멀 운영형</title>
+  <style>
+    :root{--bg:#f6f7fb;--card:#fff;--line:#e5e8f0;--text:#1f2937;--muted:#6b7280;--danger:#c62828;--accent:#3b82f6}
+    body{margin:0;padding:20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text)}
+    .top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+    h1{font-size:20px;margin:0}
+    .pill{border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:12px;color:var(--muted)}
+    .grid{display:grid;gap:12px;grid-template-columns:repeat(3,minmax(0,1fr))}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+    .label{font-size:12px;color:var(--muted)} .value{font-size:26px;margin-top:4px}
+    table{width:100%;border-collapse:collapse;font-size:13px} th,td{padding:7px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+    .stack{display:grid;gap:12px;grid-template-columns:1fr 1fr;margin-top:12px}
+    .status{font-size:13px;color:var(--muted)}
+    .danger{color:var(--danger)}
+    @media (max-width:920px){.grid{grid-template-columns:1fr}.stack{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="top">
+    <h1>OpenChat Dashboard <span class="pill">v1 미니멀 운영형</span></h1>
+    <a href="/dashboard.html">버전 선택으로</a>
+  </div>
+  <div id="status" class="status">로딩 중...</div>
+
+  <div class="grid" style="margin-top:10px">
+    <div class="card"><div class="label">메시지</div><div class="value" id="msg">-</div></div>
+    <div class="card"><div class="label">이벤트</div><div class="value" id="ev">-</div></div>
+    <div class="card"><div class="label">마지막 메시지</div><div class="value" style="font-size:16px" id="last">-</div></div>
+  </div>
+
+  <div class="stack">
+    <div class="card"><h3>이벤트 유형</h3><table id="types"></table></div>
+    <div class="card"><h3>상위 룸</h3><table id="rooms"></table></div>
+    <div class="card"><h3>스킵 사유(24h)</h3><table id="skips"></table></div>
+    <div class="card"><h3>최근 이벤트</h3><table id="recent"></table></div>
+  </div>
+  <p class="status" id="updated"></p>
+
+<script>
+const E={summary:'/stats/summary',quality:'/stats/quality?limit_hours=24',recent:'/events/recent?limit=20'};
+const table=(id,head,rows,empty='데이터 없음')=>{
+  document.getElementById(id).innerHTML=`<tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr>`+(rows.length?rows.join(''):`<tr><td colspan="${head.length}">${empty}</td></tr>`)
+}
+async function load(){
+  const s=document.getElementById('status'); s.textContent='로딩 중...';
+  try{
+    const [sum,q,e]=await Promise.all([fetch(E.summary),fetch(E.quality),fetch(E.recent)]);
+    if(!sum.ok||!q.ok||!e.ok) throw new Error('API 오류');
+    const [sv,qv,ev]=await Promise.all([sum.json(),q.json(),e.json()]);
+    document.getElementById('msg').textContent=sv.messages ?? '-';
+    document.getElementById('ev').textContent=sv.events ?? '-';
+    document.getElementById('last').textContent=sv.last_message_at || '-';
+    table('types',['type','count'],(sv.events_by_type||[]).map(x=>`<tr><td>${x.type}</td><td>${x.count}</td></tr>`));
+    table('rooms',['room','count'],(sv.top_rooms||[]).map(x=>`<tr><td>${x.room}</td><td>${x.count}</td></tr>`));
+    table('skips',['reason','count'],(qv.skip_reasons||[]).map(x=>`<tr><td>${x.reason}</td><td class='danger'>${x.count}</td></tr>`),'스킵 없음');
+    table('recent',['time','type','vendor/product','conf'],(ev.items||[]).map(x=>`<tr><td>${x.created_at}</td><td>${x.event_type}</td><td>${x.vendor||'-'} / ${x.product_name||'-'}</td><td>${x.confidence ?? '-'}</td></tr>`));
+    s.textContent='정상';
+    document.getElementById('updated').textContent='updated: '+new Date().toLocaleString();
+  }catch(err){s.textContent='오류: '+err.message;}
+}
+load(); setInterval(load,7000);
+</script>
+</body>
+</html>

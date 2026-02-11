@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Dashboard v3 - 테이블/분석형</title>
+<style>
+body{margin:0;padding:18px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#fafafa;color:#111827}
+.head{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap} h1{margin:0;font-size:20px}
+.badge{border:1px solid #d1d5db;border-radius:999px;padding:2px 8px;font-size:12px}
+.layout{display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-top:10px}
+.panel{border:1px solid #d1d5db;background:#fff;padding:10px;border-radius:8px;overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:500px} th,td{padding:6px;border-bottom:1px solid #e5e7eb;text-align:left}
+th{background:#f3f4f6;position:sticky;top:0}
+.kv{display:grid;grid-template-columns:110px 1fr;gap:4px;font-size:12px}
+.status{font-size:12px;color:#6b7280}.danger{color:#b91c1c}
+@media (max-width:960px){.layout{grid-template-columns:1fr}}
+</style></head><body>
+<div class="head"><h1>OpenChat Analysis Board <span class="badge">v3 테이블/분석형</span></h1><a href="/dashboard.html">버전 선택으로</a></div>
+<div id="status" class="status">로딩 중...</div>
+<div class="layout">
+  <section class="panel">
+    <h3>최근 이벤트 (분석 테이블)</h3>
+    <table id="recent"></table>
+  </section>
+  <section class="panel">
+    <h3>요약</h3><div class="kv" id="summary"></div>
+    <h3>이벤트 유형 집계</h3><table id="types"></table>
+    <h3>상위 룸</h3><table id="rooms"></table>
+    <h3>스킵 사유(24h)</h3><table id="skips"></table>
+  </section>
+</div>
+<p class="status" id="updated"></p>
+<script>
+const E={summary:'/stats/summary',quality:'/stats/quality?limit_hours=24',recent:'/events/recent?limit=20'};
+function table(id,head,rows,empty='데이터 없음'){document.getElementById(id).innerHTML=`<tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr>`+(rows.length?rows.join(''):`<tr><td colspan='${head.length}'>${empty}</td></tr>`)}
+async function load(){
+  const st=document.getElementById('status'); st.textContent='로딩 중...';
+  try{
+    const [s,q,e]=await Promise.all([fetch(E.summary),fetch(E.quality),fetch(E.recent)]); if(!s.ok||!q.ok||!e.ok) throw new Error('API 오류');
+    const [sv,qv,ev]=await Promise.all([s.json(),q.json(),e.json()]);
+    document.getElementById('summary').innerHTML=`<div>messages</div><b>${sv.messages??'-'}</b><div>events</div><b>${sv.events??'-'}</b><div>last_message_at</div><b>${sv.last_message_at||'-'}</b>`;
+    table('types',['type','count'],(sv.events_by_type||[]).map(x=>`<tr><td>${x.type}</td><td>${x.count}</td></tr>`));
+    table('rooms',['room','count'],(sv.top_rooms||[]).map(x=>`<tr><td>${x.room}</td><td>${x.count}</td></tr>`));
+    table('skips',['reason','count'],(qv.skip_reasons||[]).map(x=>`<tr><td>${x.reason}</td><td class='danger'>${x.count}</td></tr>`),'스킵 없음');
+    table('recent',['created_at','event_type','vendor','product_name','confidence'],(ev.items||[]).map(x=>`<tr><td>${x.created_at}</td><td>${x.event_type}</td><td>${x.vendor||'-'}</td><td>${x.product_name||'-'}</td><td>${x.confidence ?? '-'}</td></tr>`));
+    st.textContent='정상'; document.getElementById('updated').textContent='updated: '+new Date().toLocaleString();
+  }catch(err){st.textContent='오류: '+err.message; ['recent','types','rooms','skips'].forEach(id=>table(id,['info'],[], '오류로 데이터를 불러오지 못했습니다'));}
+}
+load(); setInterval(load,7000);
+</script></body></html>

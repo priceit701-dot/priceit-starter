@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Dashboard v5 - 다크모드 관제형</title>
+<style>
+:root{--bg:#070b14;--panel:#0f172a;--line:#25324a;--text:#e2e8f0;--muted:#94a3b8;--ok:#22c55e;--warn:#f59e0b;--danger:#ef4444;--cyan:#22d3ee}
+body{margin:0;background:radial-gradient(circle at top,#0b1221,var(--bg));color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.wrap{padding:16px}.head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+h1{font-size:20px;margin:0}.badge{border:1px solid var(--line);border-radius:999px;padding:3px 9px;color:var(--cyan);font-size:12px}
+.row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
+.panel{background:rgba(15,23,42,.9);border:1px solid var(--line);border-radius:12px;padding:10px}
+.value{font-size:28px}.muted{color:var(--muted);font-size:12px}.status{font-size:13px;color:var(--muted)}
+.main{display:grid;grid-template-columns:1.7fr 1fr;gap:10px;margin-top:10px}
+table{width:100%;border-collapse:collapse;font-size:12px} th,td{padding:6px;border-bottom:1px solid #1e293b;text-align:left}
+.log{max-height:420px;overflow:auto}.chip{display:inline-block;padding:2px 7px;border-radius:999px;background:#0b2138;color:#7dd3fc;font-size:11px}
+.danger{color:var(--danger)} .ok{color:var(--ok)}
+@media (max-width:1024px){.row{grid-template-columns:1fr 1fr}.main{grid-template-columns:1fr}}
+@media (max-width:640px){.row{grid-template-columns:1fr}}
+</style></head><body><div class="wrap">
+  <div class="head"><h1>OpenChat Control Room <span class="badge">v5 다크모드 관제형</span></h1><a style="color:#93c5fd" href="/dashboard.html">버전 선택으로</a></div>
+  <div id="status" class="status">로딩 중...</div>
+  <div class="row">
+    <div class="panel"><div class="muted">MESSAGE COUNT</div><div class="value" id="msg">-</div></div>
+    <div class="panel"><div class="muted">EVENT COUNT</div><div class="value" id="ev">-</div></div>
+    <div class="panel"><div class="muted">LAST MESSAGE</div><div id="last">-</div></div>
+    <div class="panel"><div class="muted">SYSTEM STATE</div><div id="health" class="ok">NORMAL</div></div>
+  </div>
+  <div class="main">
+    <section class="panel log"><h3>Event Stream</h3><div id="stream"></div></section>
+    <section class="panel"><h3>분석 패널</h3><table id="types"></table><table id="rooms" style="margin-top:8px"></table><table id="skips" style="margin-top:8px"></table></section>
+  </div>
+  <p id="updated" class="status"></p>
+</div>
+<script>
+const E={summary:'/stats/summary',quality:'/stats/quality?limit_hours=24',recent:'/events/recent?limit=20'};
+function tbl(id,title,head,rows,empty='데이터 없음'){document.getElementById(id).innerHTML=`<tr><th colspan='${head.length}'>${title}</th></tr><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr>`+(rows.length?rows.join(''):`<tr><td colspan='${head.length}'>${empty}</td></tr>`)}
+async function load(){
+  const st=document.getElementById('status'); st.textContent='로딩 중...';
+  try{
+    const [s,q,e]=await Promise.all([fetch(E.summary),fetch(E.quality),fetch(E.recent)]); if(!s.ok||!q.ok||!e.ok) throw new Error('API 오류');
+    const [sv,qv,ev]=await Promise.all([s.json(),q.json(),e.json()]);
+    document.getElementById('msg').textContent=sv.messages??'-'; document.getElementById('ev').textContent=sv.events??'-'; document.getElementById('last').textContent=sv.last_message_at||'-';
+    tbl('types','EVENT TYPE',['type','count'],(sv.events_by_type||[]).map(x=>`<tr><td>${x.type}</td><td>${x.count}</td></tr>`));
+    tbl('rooms','TOP ROOMS',['room','count'],(sv.top_rooms||[]).map(x=>`<tr><td>${x.room}</td><td>${x.count}</td></tr>`));
+    tbl('skips','SKIP REASONS(24h)',['reason','count'],(qv.skip_reasons||[]).map(x=>`<tr><td>${x.reason}</td><td class='danger'>${x.count}</td></tr>`),'스킵 없음');
+    const items=ev.items||[]; document.getElementById('stream').innerHTML=items.length?items.map(x=>`<p><span class='chip'>${x.event_type}</span> ${x.created_at}<br>${x.vendor||'-'} / ${x.product_name||'-'} · conf ${x.confidence ?? '-'}</p>`).join(''):'<p>이벤트 없음</p>';
+    document.getElementById('health').textContent='NORMAL'; document.getElementById('health').className='ok';
+    st.textContent='정상'; document.getElementById('updated').textContent='updated: '+new Date().toLocaleString();
+  }catch(err){st.textContent='오류: '+err.message; document.getElementById('health').textContent='ERROR'; document.getElementById('health').className='danger'; document.getElementById('stream').innerHTML='<p>오류로 이벤트를 불러오지 못했습니다</p>';}
+}
+load(); setInterval(load,7000);
+</script></body></html>

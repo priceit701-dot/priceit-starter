@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Dashboard v4 - 타임라인 모니터링형</title>
+<style>
+body{margin:0;background:#f8fafc;color:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:18px}.head{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.badge{background:#e2e8f0;border-radius:999px;padding:4px 10px;font-size:12px}
+.state{font-size:13px;color:#64748b}
+.timeline{margin-top:12px;border-left:3px solid #cbd5e1;padding-left:14px}
+.item{background:#fff;border:1px solid #dbe2ea;border-radius:10px;padding:10px;margin-bottom:10px}
+.meta{font-size:12px;color:#64748b} .tag{display:inline-block;background:#eef2ff;color:#3730a3;border-radius:6px;padding:1px 6px;font-size:11px}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}
+.box{background:#fff;border:1px solid #dbe2ea;border-radius:10px;padding:10px;min-height:100px}
+ul{padding-left:18px;margin:8px 0;font-size:13px}.danger{color:#dc2626}
+@media (max-width:900px){.grid{grid-template-columns:1fr}}
+</style></head><body><div class="wrap">
+  <div class="head"><h1>OpenChat Timeline Monitor <span class="badge">v4 타임라인 모니터링형</span></h1><a href="/dashboard.html">버전 선택으로</a></div>
+  <div id="status" class="state">로딩 중...</div>
+  <section class="grid">
+    <div class="box"><h3>운영 요약</h3><div id="summary">-</div></div>
+    <div class="box"><h3>이벤트 유형</h3><ul id="types"></ul></div>
+    <div class="box"><h3>스킵/룸</h3><ul id="mix"></ul></div>
+  </section>
+  <section>
+    <h3>실시간 이벤트 타임라인</h3>
+    <div id="timeline" class="timeline"></div>
+  </section>
+  <p id="updated" class="state"></p>
+</div>
+<script>
+const E={summary:'/stats/summary',quality:'/stats/quality?limit_hours=24',recent:'/events/recent?limit=20'};
+const list=(id,items,empty='데이터 없음')=>document.getElementById(id).innerHTML=items.length?items.join(''):`<li>${empty}</li>`;
+async function load(){
+  const st=document.getElementById('status'); st.textContent='로딩 중...';
+  try{
+    const [s,q,e]=await Promise.all([fetch(E.summary),fetch(E.quality),fetch(E.recent)]); if(!s.ok||!q.ok||!e.ok) throw new Error('API 오류');
+    const [sv,qv,ev]=await Promise.all([s.json(),q.json(),e.json()]);
+    document.getElementById('summary').innerHTML=`메시지 <b>${sv.messages??'-'}</b><br>이벤트 <b>${sv.events??'-'}</b><br>마지막 메시지 <b>${sv.last_message_at||'-'}</b>`;
+    list('types',(sv.events_by_type||[]).map(x=>`<li>${x.type}: <b>${x.count}</b></li>`));
+    const skips=(qv.skip_reasons||[]).map(x=>`<li><span class='danger'>skip ${x.reason}</span>: ${x.count}</li>`);
+    const rooms=(sv.top_rooms||[]).slice(0,3).map(x=>`<li>room ${x.room}: ${x.count}</li>`);
+    list('mix',[...skips,...rooms], '스킵/룸 데이터 없음');
+    const items=ev.items||[];
+    document.getElementById('timeline').innerHTML=items.length?items.map(x=>`<article class='item'><div><span class='tag'>${x.event_type}</span></div><div>${x.vendor||'-'} / ${x.product_name||'-'}</div><div class='meta'>${x.created_at} · conf ${x.confidence ?? '-'}</div></article>`).join(''):'<article class="item">최근 이벤트 없음</article>';
+    st.textContent='정상'; document.getElementById('updated').textContent='updated: '+new Date().toLocaleString();
+  }catch(err){st.textContent='오류: '+err.message; document.getElementById('timeline').innerHTML='<article class="item">오류로 타임라인을 불러오지 못했습니다</article>';}
+}
+load(); setInterval(load,7000);
+</script></body></html>

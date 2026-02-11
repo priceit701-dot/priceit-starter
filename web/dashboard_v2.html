@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Dashboard v2 - KPI 카드 중심형</title>
+<style>
+:root{--bg:#f4f7ff;--line:#d9e1f5;--card:#fff;--text:#1e293b;--muted:#64748b;--accent:#2563eb;--danger:#dc2626}
+body{margin:0;background:var(--bg);font-family:Inter,-apple-system,sans-serif;color:var(--text)}
+.wrap{max-width:1200px;margin:0 auto;padding:20px}.hero{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:14px}
+.kpi{background:linear-gradient(130deg,#fff,#f7faff);border:1px solid var(--line);border-radius:14px;padding:14px}
+.kpi .label{font-size:12px;color:var(--muted)} .kpi .value{font-size:30px;font-weight:700}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
+.grid{display:grid;grid-template-columns:1.4fr 1fr;gap:12px;margin-top:12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+ul{margin:8px 0;padding-left:18px;font-size:13px}.danger{color:var(--danger)}
+.badge{background:#e6efff;color:#1d4ed8;border-radius:999px;padding:4px 8px;font-size:12px}
+.status{font-size:13px;color:var(--muted)}
+@media (max-width:960px){.kpis{grid-template-columns:1fr 1fr}.grid,.grid2{grid-template-columns:1fr}}
+@media (max-width:560px){.kpis{grid-template-columns:1fr}}
+</style></head><body>
+<div class="wrap">
+  <div class="hero"><h1>OpenChat KPI Dashboard <span class="badge">v2 KPI 카드 중심형</span></h1><a href="/dashboard.html">버전 선택으로</a></div>
+  <div id="status" class="status">로딩 중...</div>
+  <section class="kpis">
+    <article class="kpi"><div class="label">총 메시지</div><div class="value" id="msg">-</div></article>
+    <article class="kpi"><div class="label">총 이벤트</div><div class="value" id="ev">-</div></article>
+    <article class="kpi"><div class="label">최근 메시지 시각</div><div class="value" style="font-size:16px" id="last">-</div></article>
+    <article class="kpi"><div class="label">스킵 건수(24h)</div><div class="value" id="skipTotal">-</div></article>
+  </section>
+  <section class="grid">
+    <article class="panel"><h3>최근 이벤트 피드</h3><ul id="recent"></ul></article>
+    <article class="panel"><h3>이벤트 유형 분포</h3><ul id="types"></ul></article>
+  </section>
+  <section class="grid2">
+    <article class="panel"><h3>상위 룸</h3><ul id="rooms"></ul></article>
+    <article class="panel"><h3>스킵 사유</h3><ul id="skips"></ul></article>
+  </section>
+  <p id="updated" class="status"></p>
+</div>
+<script>
+const E={summary:'/stats/summary',quality:'/stats/quality?limit_hours=24',recent:'/events/recent?limit=20'};
+const li=(id,items,empty='데이터 없음')=>document.getElementById(id).innerHTML=items.length?items.join(''):`<li>${empty}</li>`;
+async function load(){
+  const st=document.getElementById('status'); st.textContent='로딩 중...';
+  try{
+    const [s,q,e]=await Promise.all([fetch(E.summary),fetch(E.quality),fetch(E.recent)]); if(!s.ok||!q.ok||!e.ok) throw new Error('API 오류');
+    const [sv,qv,ev]=await Promise.all([s.json(),q.json(),e.json()]);
+    document.getElementById('msg').textContent=sv.messages??'-'; document.getElementById('ev').textContent=sv.events??'-'; document.getElementById('last').textContent=sv.last_message_at||'-';
+    const skips=qv.skip_reasons||[]; document.getElementById('skipTotal').textContent=skips.reduce((a,c)=>a+(c.count||0),0);
+    li('types',(sv.events_by_type||[]).map(x=>`<li><b>${x.type}</b> · ${x.count}</li>`));
+    li('rooms',(sv.top_rooms||[]).map(x=>`<li><b>${x.room}</b> · ${x.count}</li>`));
+    li('skips',skips.map(x=>`<li><span class='danger'>${x.reason}</span> · ${x.count}</li>`),'스킵 없음');
+    li('recent',(ev.items||[]).map(x=>`<li>${x.created_at} · <b>${x.event_type}</b> · ${x.vendor||'-'}/${x.product_name||'-'} · conf ${x.confidence ?? '-'}</li>`));
+    st.textContent='정상'; document.getElementById('updated').textContent='updated: '+new Date().toLocaleString();
+  }catch(err){st.textContent='오류: '+err.message}
+}
+load(); setInterval(load,7000);
+</script></body></html>

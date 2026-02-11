@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 PRICE_RE = re.compile(r"(?P<price>[0-9]{1,3}(?:,[0-9]{3})+|[0-9]{4,})\s*원")
+PRODUCT_PRICE_RE = re.compile(r"[✔🍅\-\s]*([^;\n]+?)\s*;\s*([0-9][0-9,]*)\s*원")
 VENDOR_RE = re.compile(r"\[(?P<vendor>[^\]]+)\]")
 
 UP_KEYWORDS = ["인상", "올랐", "상승"]
@@ -74,11 +75,34 @@ def parse_message(text: str) -> Optional[ParsedEvent]:
     product_name = _parse_product(text)
     prices = _parse_price(text)
 
+    # Notice / delay style announcements
+    if "공지" in text or "일일공지" in text:
+        if "원물 부족" in text or "출고" in text or "소요" in text:
+            return ParsedEvent(vendor, product_name, "DELAY_NOTICE", None, None, None, 0.93)
+        return ParsedEvent(vendor, product_name, "NOTICE", None, None, None, 0.75)
+
+    # Structured product line: "상품명 ; 11,700원"
+    mpp = PRODUCT_PRICE_RE.search(text)
+    if mpp:
+        p_name = mpp.group(1).strip()
+        p_price = int(mpp.group(2).replace(",", ""))
+        et = "NEW_ITEM" if ("신상품" in text or "전격 오픈" in text) else "PRICE_SEEN"
+        return ParsedEvent(vendor, p_name, et, None, p_price, None, 0.95)
+
     if any(k in text for k in SOLD_OUT_KEYWORDS) or any(k in lower for k in SOLD_OUT_KEYWORDS):
         return ParsedEvent(vendor, product_name, "SOLD_OUT", None, None, "SOLD_OUT", 0.92)
 
+    if "원물 부족" in text or "대량발주" in text and "불가" in text:
+        return ParsedEvent(vendor, product_name, "SOLD_OUT_RISK", None, None, "RISK", 0.86)
+
     if any(k in text for k in RESTOCK_KEYWORDS) or any(k in lower for k in RESTOCK_KEYWORDS):
         return ParsedEvent(vendor, product_name, "RESTOCK", None, None, "IN_STOCK", 0.90)
+
+    if "🔺인상" in text:
+        return ParsedEvent(vendor, product_name, "PRICE_UP", None, prices[0] if prices else None, None, 0.84)
+
+    if "🔽인하" in text or "슈퍼특가" in text:
+        return ParsedEvent(vendor, product_name, "PRICE_DOWN", None, prices[0] if prices else None, None, 0.84)
 
     if any(k in text for k in UP_KEYWORDS):
         if len(prices) >= 2:

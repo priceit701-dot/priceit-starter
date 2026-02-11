@@ -9,6 +9,8 @@ from .notifier import send_telegram
 ROOM_EVENT_CONTEXT = {}
 CONTEXT_TTL_SECONDS = 60 * 30
 CONTEXT_EVENT_TYPES = {"PRICE_UP", "PRICE_DOWN", "NEW_ITEM", "SOLD_OUT", "DELAY_NOTICE"}
+EVENT_TYPES_ORDER = ["PRICE_UP", "PRICE_DOWN", "SOLD_OUT", "RESTOCK", "DELAY_NOTICE", "NEW_ITEM", "NOTICE"]
+EVENT_TYPES_SET = set(EVENT_TYPES_ORDER)
 
 
 def _hash(room_name: str, sender: str, line: str, created_at: str):
@@ -166,6 +168,7 @@ def ingest_line(room_name: str, line: str, sender: str = "unknown", created_at: 
                     parsed = ParsedEvent(
                         vendor="팜허브" if "팜허브" in line else None,
                         product_name=product,
+                        option_name=None,
                         event_type=ctx_event_type,
                         old_price=None,
                         new_price=None,
@@ -176,7 +179,7 @@ def ingest_line(room_name: str, line: str, sender: str = "unknown", created_at: 
         if not parsed:
             return True
 
-        conn.execute(
+        ev_cur = conn.execute(
             """
             INSERT INTO events(
                 message_id, room_name, vendor, product_name, event_type,
@@ -196,6 +199,7 @@ def ingest_line(room_name: str, line: str, sender: str = "unknown", created_at: 
                 created_at,
             ),
         )
+        event_id = ev_cur.lastrowid
 
         vendor = parsed.vendor or "UNKNOWN"
         product = parsed.product_name or line[:40]
@@ -220,6 +224,66 @@ def ingest_line(room_name: str, line: str, sender: str = "unknown", created_at: 
                 """,
                 (vendor, product, key, parsed.new_price, parsed.stock_status, created_at),
             )
+
+        # 신규 painpoint 스키마 병행 적재 (테이블 미존재 시 자동 스킵)
+        try:
+            canonical_item_key = f"{vendor}|{product}"
+            conn.execute(
+                """
+                INSERT INTO openchat_item_master(
+                    canonical_item_key, vendor_name, product_name_raw, product_name_norm, first_seen_at, last_seen_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(canonical_item_key) DO UPDATE SET
+                    last_seen_at=excluded.last_seen_at,
+                    product_name_raw=COALESCE(excluded.product_name_raw, openchat_item_master.product_name_raw),
+                    product_name_norm=COALESCE(excluded.product_name_norm, openchat_item_master.product_name_norm)
+                """,
+                (canonical_item_key, vendor, product, product, created_at, created_at),
+            )
+            item_id = conn.execute("SELECT id FROM openchat_item_master WHERE canonical_item_key=?", (canonical_item_key,)).fetchone()[0]
+
+            option_id = None
+            if getattr(parsed, "option_name", None):
+                option_key = parsed.option_name.strip().lower()
+                conn.execute(
+                    """
+                    INSERT INTO openchat_item_option(item_id, option_name_raw, option_name_norm)
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(item_id, option_name_norm) DO UPDATE SET option_name_raw=excluded.option_name_raw
+                    """,
+                    (item_id, parsed.option_name, option_key),
+                )
+                row_opt = conn.execute(
+                    "SELECT id FROM openchat_item_option WHERE item_id=? AND option_name_norm=?",
+                    (item_id, option_key),
+                ).fetchone()
+                option_id = row_opt[0] if row_opt else None
+
+            event_type_std = parsed.event_type if parsed.event_type in EVENT_TYPES_SET else "NOTICE"
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO openchat_event_fact(
+                    legacy_event_id, message_id, room_name, vendor_name, item_id, option_id,
+                    event_type, old_price, new_price, stock_status, confidence, event_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    event_id,
+                    msg_id,
+                    room_name,
+                    vendor,
+                    item_id,
+                    option_id,
+                    event_type_std,
+                    parsed.old_price,
+                    parsed.new_price,
+                    parsed.stock_status,
+                    parsed.confidence,
+                    created_at,
+                ),
+            )
+        except Exception:
+            pass
 
     if parsed.event_type in {"SOLD_OUT", "RESTOCK", "PRICE_DOWN", "PRICE_UP"}:
         old_new = f" ({parsed.old_price} → {parsed.new_price})" if parsed.old_price or parsed.new_price else ""

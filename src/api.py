@@ -1,6 +1,7 @@
 from typing import Optional
 from pathlib import Path
 import sqlite3
+import re
 
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -11,6 +12,7 @@ from pydantic import BaseModel
 from .db import init_db
 from .pipeline import ingest_line
 from .config import DB_PATH
+from .parser import extract_item_profile
 
 app = FastAPI(title="priceit collector")
 app.add_middleware(
@@ -31,6 +33,70 @@ ALERT_TYPES_ORDER = [
     "NOTICE",
 ]
 ACTION_REQUIRED_TYPES = ["SOLD_OUT", "DELAY_NOTICE", "PRICE_UP", "PRICE_DOWN"]
+
+
+def _is_ts_like(value: Optional[str]) -> bool:
+    if not value:
+        return False
+    s = str(value).strip()
+    return bool(re.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", s))
+
+
+def _clean_text(value: Optional[str]) -> str:
+    if value is None:
+        return ""
+    s = str(value).strip()
+    if not s or _is_ts_like(s):
+        return ""
+    return s
+
+
+def _extract_item_fields(message_text: Optional[str], vendor: Optional[str] = None) -> dict:
+    if not message_text:
+        return {
+            "item_name": "미분류 상품",
+            "item_name_raw": None,
+            "item_name_norm": None,
+            "option_tokens": [],
+            "brand": vendor,
+            "grade": None,
+            "origin": None,
+            "unit": None,
+        }
+    profile = extract_item_profile(str(message_text), vendor=vendor)
+    item_name = profile.item_name_norm or profile.item_name_raw or "미분류 상품"
+    return {
+        "item_name": item_name,
+        "item_name_raw": profile.item_name_raw,
+        "item_name_norm": profile.item_name_norm,
+        "option_tokens": profile.option_tokens,
+        "brand": profile.brand,
+        "grade": profile.grade,
+        "origin": profile.origin,
+        "unit": profile.unit,
+    }
+
+
+def _event_change_text(event_type: str, old_price: Optional[int], new_price: Optional[int]) -> str:
+    if event_type in {"PRICE_UP", "PRICE_DOWN"}:
+        if old_price is not None and new_price is not None:
+            diff = new_price - old_price
+            sign = "+" if diff > 0 else ""
+            return f"{old_price:,}원 → {new_price:,}원 ({sign}{diff:,}원)"
+        if new_price is not None:
+            return f"현재가 {new_price:,}원"
+        return "가격 변동"
+    if event_type == "SOLD_OUT":
+        return "품절"
+    if event_type == "RESTOCK":
+        return "재입고"
+    if event_type == "DELAY_NOTICE":
+        return "출고/배송 지연"
+    if event_type == "NEW_ITEM":
+        return "신규 상품"
+    if event_type == "NOTICE":
+        return "운영 공지"
+    return "-"
 
 
 class IngestBody(BaseModel):
@@ -155,18 +221,20 @@ def events_recent(limit: int = 30):
 
 
 @app.get("/stats/seller")
-def stats_seller(limit_hours: int = 24, feed_limit: int = 30, action_limit: int = 15):
+def stats_seller(limit_hours: int = 24, feed_limit: int = 30, action_limit: int = 15, include_bench: bool = False):
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
 
     placeholders = ",".join(["?"] * len(ALERT_TYPES_ORDER))
+    room_filter = "" if include_bench else " and room_name not like 'bench_room_%' "
     cur.execute(
         f"""
         select event_type, count(*) c
         from events
         where datetime(created_at) >= datetime('now', ?)
           and event_type in ({placeholders})
+          {room_filter}
         group by event_type
         """,
         [f"-{limit_hours} hours", *ALERT_TYPES_ORDER],
@@ -176,38 +244,61 @@ def stats_seller(limit_hours: int = 24, feed_limit: int = 30, action_limit: int 
 
     cur.execute(
         """
-        select id, room_name, vendor, product_name, event_type, old_price, new_price, confidence, created_at
-        from events
-        where event_type in ({})
-        order by id desc
+        select e.id, e.room_name, e.vendor, e.product_name, e.event_type, e.old_price, e.new_price, e.confidence, e.created_at,
+               m.message_text
+        from events e
+        left join messages m on m.id = e.message_id
+        where e.event_type in ({})
+          {}
+        order by e.id desc
         limit ?
-        """.format(placeholders),
+        """.format(placeholders, room_filter.replace('room_name', 'e.room_name')),
         [*ALERT_TYPES_ORDER, min(max(feed_limit, 1), 100)],
     )
-    recent_feed = [dict(r) for r in cur.fetchall()]
+    recent_feed = []
+    for r in cur.fetchall():
+        row = dict(r)
+        item_fields = _extract_item_fields(row.get("message_text"), vendor=row.get("vendor"))
+        row["item_name"] = _clean_text(row.get("product_name")) or _clean_text(item_fields.get("item_name")) or _clean_text(row.get("vendor"))
+        row.update(item_fields)
+        row["change_text"] = _event_change_text(row.get("event_type"), row.get("old_price"), row.get("new_price"))
+        recent_feed.append(row)
 
     action_placeholders = ",".join(["?"] * len(ACTION_REQUIRED_TYPES))
     cur.execute(
         """
-        select id, room_name, vendor, product_name, event_type, old_price, new_price, confidence, created_at
-        from events
-        where event_type in ({})
-        order by id desc
+        select e.id, e.room_name, e.vendor, e.product_name, e.event_type, e.old_price, e.new_price, e.confidence, e.created_at,
+               m.message_text
+        from events e
+        left join messages m on m.id = e.message_id
+        where e.event_type in ({})
+          {}
+        order by e.id desc
         limit ?
-        """.format(action_placeholders),
+        """.format(action_placeholders, room_filter.replace('room_name', 'e.room_name')),
         [*ACTION_REQUIRED_TYPES, min(max(action_limit, 1), 100)],
     )
-    action_items = [dict(r) for r in cur.fetchall()]
+    action_items = []
+    for r in cur.fetchall():
+        row = dict(r)
+        item_fields = _extract_item_fields(row.get("message_text"), vendor=row.get("vendor"))
+        row["item_name"] = _clean_text(row.get("product_name")) or _clean_text(item_fields.get("item_name")) or _clean_text(row.get("vendor"))
+        row.update(item_fields)
+        row["change_text"] = _event_change_text(row.get("event_type"), row.get("old_price"), row.get("new_price"))
+        action_items.append(row)
 
     # seller insight model (content-focused)
     cur.execute(
         """
-        select id, room_name, vendor, product_name, event_type, old_price, new_price, stock_status, confidence, created_at
-        from events
-        where datetime(created_at) >= datetime('now', ?)
-          and event_type in ({})
-        order by datetime(created_at) desc, id desc
-        """.format(placeholders),
+        select e.id, e.room_name, e.vendor, e.product_name, e.event_type, e.old_price, e.new_price, e.stock_status, e.confidence, e.created_at,
+               m.message_text
+        from events e
+        left join messages m on m.id = e.message_id
+        where datetime(e.created_at) >= datetime('now', ?)
+          and e.event_type in ({})
+          {}
+        order by datetime(e.created_at) desc, e.id desc
+        """.format(placeholders, room_filter.replace('room_name', 'e.room_name')),
         [f"-{limit_hours} hours", *ALERT_TYPES_ORDER],
     )
     scoped_events = [dict(r) for r in cur.fetchall()]
@@ -235,7 +326,8 @@ def stats_seller(limit_hours: int = 24, feed_limit: int = 30, action_limit: int 
             return product
         if vendor:
             return vendor
-        return "미분류 상품"
+        extracted = _extract_item_fields(row.get("message_text"), vendor=row.get("vendor"))
+        return extracted.get("item_name") or "미분류 상품"
 
     def price_evidence(row):
         old_price = row.get("old_price")
@@ -297,6 +389,14 @@ def stats_seller(limit_hours: int = 24, feed_limit: int = 30, action_limit: int 
             f"최근 {limit_hours}시간 동안 {rec['item']}에서 {rec['event_count']}건 변동 "
             f"(인상 {rec['price_up_count']} / 인하 {rec['price_down_count']} / 품절 {rec['sold_out_count']} / 지연 {rec['delay_notice_count']})."
         )
+        price_spike_risk = rec["price_up_count"] >= 2 or rec["max_abs_price_change_pct"] >= 7
+        repeat_sold_out = rec["sold_out_count"] >= 2
+        supply_delay = rec["delay_notice_count"] >= 1
+        option_confusion = rec["event_count"] >= 3 and rec["price_up_count"] >= 1 and rec["price_down_count"] >= 1
+        margin_pressure = (rec["price_up_count"] > rec["price_down_count"] and rec["max_abs_price_change_pct"] >= 5) or (
+            rec["price_up_count"] >= 1 and (rec["sold_out_count"] + rec["delay_notice_count"]) >= 1
+        )
+
         change_summary_by_item.append(
             {
                 "item": rec["item"],
@@ -311,6 +411,13 @@ def stats_seller(limit_hours: int = 24, feed_limit: int = 30, action_limit: int 
                 "max_abs_price_change_pct": round(rec["max_abs_price_change_pct"], 2),
                 "recent_rooms": sorted(rec["recent_rooms"]),
                 "recent_event_types": sorted([t for t in rec["recent_event_types"] if t]),
+                "pain_points": {
+                    "가격급등리스크": price_spike_risk,
+                    "반복품절": repeat_sold_out,
+                    "공급지연": supply_delay,
+                    "옵션혼선": option_confusion,
+                    "마진압박후보": margin_pressure,
+                },
                 "human_summary": sentence,
             }
         )
@@ -398,6 +505,23 @@ def stats_seller(limit_hours: int = 24, feed_limit: int = 30, action_limit: int 
             recommended_actions.append(text)
     recommended_actions = recommended_actions[: min(max(action_limit, 1), 20)]
 
+    pain_point_candidates = []
+    for item in change_summary_by_item:
+        pp = item.get("pain_points", {})
+        active = [k for k, v in pp.items() if v]
+        if not active:
+            continue
+        pain_point_candidates.append(
+            {
+                "item": item.get("item"),
+                "vendor": item.get("vendor"),
+                "product_name": item.get("product_name"),
+                "pain_points": active,
+                "event_count": item.get("event_count"),
+                "last_event_at": item.get("last_event_at"),
+            }
+        )
+
     evidence_fields = {
         "window_hours": limit_hours,
         "generated_at": scoped_events[0]["created_at"] if scoped_events else None,
@@ -405,6 +529,7 @@ def stats_seller(limit_hours: int = 24, feed_limit: int = 30, action_limit: int 
         "action_item_count": len(action_priority_list),
         "stock_risk_count": len(stock_risk_items),
         "items_with_changes": len(change_summary_by_item),
+        "pain_point_candidate_count": len(pain_point_candidates),
     }
 
     conn.close()
@@ -419,6 +544,7 @@ def stats_seller(limit_hours: int = 24, feed_limit: int = 30, action_limit: int 
         "action_priority_list": action_priority_list,
         "change_summary_by_item": change_summary_by_item,
         "stock_risk_items": stock_risk_items,
+        "pain_point_candidates": pain_point_candidates,
         "recommended_actions": recommended_actions,
         "evidence_fields": evidence_fields,
     }

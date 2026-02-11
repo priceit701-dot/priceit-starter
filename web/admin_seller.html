@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Seller Admin | Priceit</title>
+  <style>
+    :root{--bg:#0b1220;--panel:#13203a;--line:#2d4269;--text:#ecf3ff;--muted:#a5b6d1;--warn:#ffb86b;--bad:#ff7b91;--ok:#71e3b0}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Apple SD Gothic Neo',sans-serif}
+    .page{max-width:1200px;margin:0 auto;padding:16px;display:grid;gap:12px}
+    .head,.panel{border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:14px}
+    .head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
+    .links a{color:#9ec5ff;text-decoration:none;margin-left:10px}
+    .grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+    .card{border:1px solid var(--line);border-radius:10px;padding:10px;background:#0f1a31}
+    .card .k{font-size:11px;color:var(--muted)} .card .v{font-size:24px;margin-top:4px}
+    table{width:100%;border-collapse:collapse} th,td{padding:8px;border-bottom:1px solid var(--line);font-size:13px;text-align:left}
+    th{color:var(--muted);font-size:12px}
+    .badge{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:2px 8px;font-size:11px;background:#101f3b}
+    .need{color:var(--warn)} .danger{color:var(--bad)} .ok{color:var(--ok)} .muted{color:var(--muted)}
+    @media (max-width:980px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="head">
+      <div>
+        <h1 style="margin:0">셀러 어드민</h1>
+        <div class="muted">판매/운영 핵심 알람만 노출 (잡음 최소화)</div>
+      </div>
+      <div class="links">
+        <a href="/dashboard">기존 대시보드</a>
+        <a href="/admin/control-tower">관제탑 보기</a>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2 style="margin:0 0 10px">오늘 주요 알람 요약 (7유형 고정)</h2>
+      <div id="summary" class="grid"></div>
+    </section>
+
+    <section class="panel">
+      <h2 style="margin:0 0 10px">내 대응 필요 항목 (품절/지연/가격변동)</h2>
+      <table>
+        <thead><tr><th>시각</th><th>유형</th><th>상품</th><th>룸</th><th>가격변화</th></tr></thead>
+        <tbody id="actionRows"><tr><td colspan="5" class="muted">로딩 중...</td></tr></tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2 style="margin:0 0 10px">최근 알람 피드</h2>
+      <table>
+        <thead><tr><th>시각</th><th>유형</th><th>업체/상품</th><th>룸</th><th>신뢰도</th></tr></thead>
+        <tbody id="feedRows"><tr><td colspan="5" class="muted">로딩 중...</td></tr></tbody>
+      </table>
+    </section>
+  </main>
+<script>
+const ORDER=['PRICE_UP','PRICE_DOWN','SOLD_OUT','RESTOCK','DELAY_NOTICE','NEW_ITEM','NOTICE'];
+const tone=(t)=>({PRICE_UP:'danger',PRICE_DOWN:'ok',SOLD_OUT:'danger',RESTOCK:'ok',DELAY_NOTICE:'need',NEW_ITEM:'',NOTICE:''}[t]||'');
+const esc=(v)=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+const fmt=(v)=>{if(!v)return '-'; const d=new Date(v); return Number.isNaN(d.getTime())?esc(v):d.toLocaleString('ko-KR',{hour12:false});};
+const money=(v)=>Number.isFinite(v)?v.toLocaleString('ko-KR'):'-';
+
+function renderSummary(items){
+  const m=new Map((items||[]).map(x=>[x.type,x.count]));
+  document.getElementById('summary').innerHTML=ORDER.map(t=>`<div class='card'><div class='k'>${t}</div><div class='v ${tone(t)}'>${(m.get(t)||0).toLocaleString('ko-KR')}</div></div>`).join('');
+}
+function renderRows(id, rows, mapper, colspan){
+  const el=document.getElementById(id);
+  if(!rows?.length){el.innerHTML=`<tr><td colspan='${colspan}' class='muted'>데이터 없음</td></tr>`; return;}
+  el.innerHTML=rows.map(mapper).join('');
+}
+
+async function load(){
+  try{
+    const r=await fetch('/stats/seller?limit_hours=24&feed_limit=30&action_limit=20');
+    if(!r.ok) throw new Error('API '+r.status);
+    const d=await r.json();
+    renderSummary(d.today_alert_summary||[]);
+    renderRows('actionRows', d.action_required_items, (x)=>`<tr>
+      <td>${fmt(x.created_at)}</td>
+      <td><span class='badge ${tone(x.event_type)}'>${esc(x.event_type||'-')}</span></td>
+      <td>${esc(x.vendor||'-')} / ${esc(x.product_name||'-')}</td>
+      <td>${esc(x.room_name||'-')}</td>
+      <td>${money(x.old_price)} → ${money(x.new_price)}</td>
+    </tr>`, 5);
+    renderRows('feedRows', d.recent_alert_feed, (x)=>`<tr>
+      <td>${fmt(x.created_at)}</td>
+      <td><span class='badge ${tone(x.event_type)}'>${esc(x.event_type||'-')}</span></td>
+      <td>${esc(x.vendor||'-')} / ${esc(x.product_name||'-')}</td>
+      <td>${esc(x.room_name||'-')}</td>
+      <td>${x.confidence==null?'-':Number(x.confidence).toFixed(3)}</td>
+    </tr>`, 5);
+  }catch(e){
+    renderRows('actionRows', [], null, 5);
+    renderRows('feedRows', [], null, 5);
+  }
+}
+load(); setInterval(load,7000);
+</script>
+</body>
+</html>

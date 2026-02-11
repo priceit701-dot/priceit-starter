@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Control Tower Admin | Priceit</title>
+  <style>
+    :root{--bg:#070d18;--panel:#0f1b31;--line:#2a3f66;--text:#e8f0ff;--muted:#98acd0;--ok:#65d9a7;--warn:#ffc56f;--bad:#ff7d92}
+    *{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at top,#13233e,var(--bg));color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Apple SD Gothic Neo',sans-serif}
+    .page{max-width:1250px;margin:0 auto;padding:16px;display:grid;gap:12px}
+    .head,.panel,.kpi{border:1px solid var(--line);background:rgba(15,27,49,.95);border-radius:12px;padding:14px}
+    .head{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center}
+    .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+    .k{color:var(--muted);font-size:12px}.v{font-size:30px;margin-top:4px}
+    .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+    table{width:100%;border-collapse:collapse}th,td{padding:8px;border-bottom:1px solid var(--line);font-size:13px;text-align:left}th{font-size:12px;color:var(--muted)}
+    .status{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:12px}
+    .OK{color:var(--ok)} .WARN{color:var(--warn)} .DOWN{color:var(--bad)}
+    .links a{color:#97c2ff;text-decoration:none;margin-left:10px}
+    @media (max-width:980px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<main class="page">
+  <section class="head">
+    <div>
+      <h1 style="margin:0">최종 어드민 (관제탑)</h1>
+      <div style="color:var(--muted)">전체 룸/이벤트/품질/리스크/오류 통합 관점</div>
+    </div>
+    <div class="links">
+      <a href="/dashboard">기존 대시보드</a>
+      <a href="/admin/seller">셀러 보기</a>
+    </div>
+  </section>
+
+  <section class="kpis">
+    <article class="kpi"><div class="k">누적 메시지</div><div class="v" id="m">-</div></article>
+    <article class="kpi"><div class="k">최근 1시간 이벤트</div><div class="v" id="e1h">-</div></article>
+    <article class="kpi"><div class="k">수집 오류(24h)</div><div class="v" id="err">-</div></article>
+    <article class="kpi"><div class="k">파이프라인 상태</div><div class="v" style="font-size:20px"><span id="ps" class="status">-</span></div><div id="psDesc" style="color:var(--muted);font-size:12px"></div></article>
+  </section>
+
+  <section class="grid">
+    <article class="panel">
+      <h2 style="margin:0 0 8px">룸별 트래픽 상위 (24h)</h2>
+      <table><thead><tr><th>룸</th><th>건수</th></tr></thead><tbody id="rooms"></tbody></table>
+    </article>
+    <article class="panel">
+      <h2 style="margin:0 0 8px">데이터 품질: 스킵/오류</h2>
+      <table><thead><tr><th>사유</th><th>건수</th></tr></thead><tbody id="skips"></tbody></table>
+    </article>
+    <article class="panel">
+      <h2 style="margin:0 0 8px">운영 메타</h2>
+      <table>
+        <tbody>
+          <tr><th>최근 메시지 시각</th><td id="last">-</td></tr>
+          <tr><th>리프레시</th><td>7초</td></tr>
+          <tr><th>대상</th><td>전체 운영 관제</td></tr>
+        </tbody>
+      </table>
+    </article>
+  </section>
+</main>
+<script>
+const esc=(v)=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+const fmt=(v)=>{if(!v)return '-';const d=new Date(v);return Number.isNaN(d.getTime())?esc(v):d.toLocaleString('ko-KR',{hour12:false});};
+function rows(id,data,cols){const el=document.getElementById(id);if(!data?.length){el.innerHTML=`<tr><td colspan='${cols}' style='color:var(--muted)'>데이터 없음</td></tr>`;return;} }
+async function load(){
+  const r=await fetch('/stats/control-tower?limit_hours=24');
+  if(!r.ok) return;
+  const d=await r.json();
+  document.getElementById('m').textContent=(d.kpi?.messages??0).toLocaleString('ko-KR');
+  document.getElementById('e1h').textContent=(d.kpi?.events_last_hour??0).toLocaleString('ko-KR');
+  document.getElementById('err').textContent=(d.kpi?.ingestion_errors??0).toLocaleString('ko-KR');
+  document.getElementById('last').textContent=fmt(d.kpi?.last_message_at);
+  const ps=d.pipeline_status?.status||'-';
+  const psEl=document.getElementById('ps'); psEl.textContent=ps; psEl.className='status '+ps;
+  document.getElementById('psDesc').textContent=d.pipeline_status?.description||'';
+
+  const roomRows=(d.top_room_traffic||[]).map(x=>`<tr><td>${esc(x.room_name||'-')}</td><td>${Number(x.c||0).toLocaleString('ko-KR')}</td></tr>`).join('');
+  document.getElementById('rooms').innerHTML=roomRows||"<tr><td colspan='2' style='color:var(--muted)'>데이터 없음</td></tr>";
+
+  const skipRows=(d.data_quality?.skip_reasons||[]).map(x=>`<tr><td>${esc(x.reason||'-')}</td><td>${Number(x.c||0).toLocaleString('ko-KR')}</td></tr>`).join('');
+  document.getElementById('skips').innerHTML=skipRows||"<tr><td colspan='2' style='color:var(--muted)'>스킵 없음</td></tr>";
+}
+load(); setInterval(load,7000);
+</script>
+</body>
+</html>

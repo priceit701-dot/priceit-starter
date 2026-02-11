@@ -10,8 +10,28 @@ def _hash(room_name: str, line: str):
     return hashlib.sha1(f"{room_name}|{line}".encode("utf-8")).hexdigest()
 
 
+def _is_noise_line(line: str) -> bool:
+    s = line.strip().lower()
+    if not s:
+        return True
+    css_tokens = [
+        "border:", "padding:", "margin:", "box-sizing", "background-color:",
+        "color:", "height:", "width:", "--", "counter-reset:", "katex",
+    ]
+    if any(tok in s for tok in css_tokens):
+        return True
+    if s.startswith("http") and "kakao" not in s and "docs.google.com" not in s:
+        return False
+    # very short symbol-only lines
+    if len(s) < 2:
+        return True
+    return False
+
+
 def ingest_line(room_name: str, line: str, sender: str = "unknown", created_at: Optional[str] = None):
     created_at = created_at or datetime.now().isoformat(timespec="seconds")
+    if _is_noise_line(line):
+        return False
     h = _hash(room_name, line)
 
     with conn_ctx() as conn:

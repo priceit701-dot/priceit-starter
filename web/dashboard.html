@@ -3,28 +3,428 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Priceit Dashboard Launcher</title>
+  <title>Priceit OpenChat 운영 대시보드</title>
   <style>
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;padding:22px;background:#0f1115;color:#e8ecf1}
-    h1{margin:0 0 8px 0;font-size:22px}
-    .muted{color:#9aa5b1;font-size:13px}
-    .grid{margin-top:16px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-    .card{display:block;text-decoration:none;color:inherit;background:#171a21;border:1px solid #2a3040;border-radius:12px;padding:14px}
-    .card:hover{border-color:#4b67a3;transform:translateY(-1px)}
-    .title{font-size:17px;margin-bottom:4px}.tag{font-size:12px;color:#9fb0cf}
-    @media (max-width:780px){.grid{grid-template-columns:1fr}}
+    :root {
+      --bg: #0b1220;
+      --panel: #121c2f;
+      --panel-2: #16243d;
+      --line: #2b3c5f;
+      --text: #ecf2ff;
+      --muted: #9eb0cf;
+      --brand: #66a8ff;
+      --ok: #44cc9b;
+      --warn: #f3c870;
+      --bad: #ff8898;
+      --radius: 14px;
+      --shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--text);
+      background: radial-gradient(circle at 0% 0%, #182a47 0%, var(--bg) 45%);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+    }
+    .page {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 16px 14px 30px;
+      display: grid;
+      gap: 12px;
+    }
+    .header {
+      border: 1px solid var(--line);
+      background: rgba(18, 28, 47, 0.95);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    h1 { margin: 0; font-size: 22px; letter-spacing: -0.02em; }
+    .sub { color: var(--muted); font-size: 13px; margin-top: 3px; }
+    .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+    .chip {
+      border: 1px solid var(--line);
+      background: #0e1729;
+      color: var(--muted);
+      border-radius: 999px;
+      font-size: 12px;
+      padding: 4px 10px;
+    }
+    .status-ok { border-color: rgba(68,204,155,.5); color: #93f1cd; }
+    .status-loading { border-color: rgba(243,200,112,.5); color: #ffe3a9; }
+    .status-error { border-color: rgba(255,136,152,.5); color: #ffc0c9; }
+
+    .grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 12px; }
+    .kpi {
+      grid-column: span 3;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px;
+    }
+    .kpi .label { color: var(--muted); font-size: 13px; }
+    .kpi .value { margin-top: 4px; font-size: 42px; line-height: 1; font-weight: 700; letter-spacing: -0.03em; }
+    .kpi .value.small { font-size: 22px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .kpi .hint { margin-top: 6px; color: var(--muted); font-size: 12px; }
+    .pill {
+      display: inline-block;
+      margin-top: 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      font-size: 11px;
+      color: var(--muted);
+      padding: 2px 8px;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px;
+      min-height: 230px;
+    }
+    .span4 { grid-column: span 4; }
+    .span8 { grid-column: span 8; }
+
+    .panel h2 { margin: 0; font-size: 17px; letter-spacing: -0.01em; }
+    .panel .desc { margin-top: 4px; color: var(--muted); font-size: 12px; }
+
+    .table-wrap {
+      margin-top: 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: auto;
+      max-height: 430px;
+    }
+    table { width: 100%; border-collapse: collapse; min-width: 320px; }
+    th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); font-size: 13px; text-align: left; }
+    th { position: sticky; top: 0; z-index: 1; color: var(--muted); font-size: 12px; background: var(--panel-2); }
+    tr:last-child td { border-bottom: none; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+
+    .bar-wrap { display: flex; align-items: center; gap: 7px; }
+    .bar {
+      flex: 1;
+      height: 8px;
+      border-radius: 999px;
+      background: #091122;
+      border: 1px solid #223453;
+      overflow: hidden;
+    }
+    .bar > span { display: block; height: 100%; background: linear-gradient(90deg, #4e81ff, #72c4ff); }
+
+    .state {
+      margin-top: 10px;
+      border: 1px dashed var(--line);
+      color: var(--muted);
+      border-radius: 10px;
+      padding: 14px;
+      text-align: center;
+      font-size: 13px;
+    }
+    .state.error { border-color: rgba(255,136,152,.6); background: rgba(255,136,152,.08); color: #ffc0c9; }
+
+    .feed { margin: 10px 0 0; padding: 0; list-style: none; max-height: 470px; overflow: auto; display: grid; gap: 8px; }
+    .feed li {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #0f192d;
+      padding: 10px;
+    }
+    .feed-top { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .event-badge {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      font-size: 11px;
+      padding: 2px 8px;
+      background: #101f37;
+      color: #d2e2ff;
+    }
+    .ok-tone { color: #8ef2c8; border-color: rgba(68,204,155,.5); }
+    .bad-tone { color: #ffc0c9; border-color: rgba(255,136,152,.5); }
+    .feed-main { margin-top: 5px; font-size: 14px; }
+    .feed-sub { margin-top: 4px; color: var(--muted); font-size: 12px; }
+
+    .note { color: var(--muted); font-size: 12px; text-align: right; }
+
+    @media (max-width: 1080px) {
+      .kpi { grid-column: span 6; }
+      .span8, .span4 { grid-column: span 12; }
+    }
+    @media (max-width: 680px) {
+      .page { padding: 10px; gap: 10px; }
+      h1 { font-size: 20px; }
+      .kpi { grid-column: span 12; }
+      .kpi .value { font-size: 40px; }
+      .kpi .value.small { font-size: 20px; }
+    }
   </style>
 </head>
 <body>
-  <h1>OpenChat 운영 대시보드 런처</h1>
-  <div class="muted">요구사항 v7: 아래 5개 시안은 동일 API(/stats/summary, /stats/quality, /events/recent)를 사용합니다.</div>
+  <main class="page">
+    <header class="header">
+      <div>
+        <h1>Priceit OpenChat 운영 대시보드</h1>
+        <div class="sub">운영자가 빠르게 상태를 파악하도록 KPI·분포·이벤트 피드를 중심으로 재구성 (v7)</div>
+      </div>
+      <div class="chips">
+        <span class="chip">자동 갱신 7초</span>
+        <span class="chip" id="chipUpdated">업데이트 대기</span>
+        <span class="chip status-loading" id="chipHealth">로딩 중</span>
+      </div>
+    </header>
 
-  <div class="grid">
-    <a class="card" href="/dashboard_v1.html"><div class="title">v1 미니멀 운영형</div><div class="tag">핵심 지표 + 기본 테이블, 단순 운영 체크</div></a>
-    <a class="card" href="/dashboard_v2.html"><div class="title">v2 KPI 카드 중심형</div><div class="tag">카드 KPI + 요약 리스트 중심</div></a>
-    <a class="card" href="/dashboard_v3.html"><div class="title">v3 테이블/분석형</div><div class="tag">분석 테이블 중심, 모노스페이스 뷰</div></a>
-    <a class="card" href="/dashboard_v4.html"><div class="title">v4 타임라인 모니터링형</div><div class="tag">이벤트 흐름 관찰용 타임라인 중심</div></a>
-    <a class="card" href="/dashboard_v5.html"><div class="title">v5 다크모드 관제형</div><div class="tag">관제실 스타일 다크 UI + 이벤트 스트림</div></a>
-  </div>
+    <section class="grid" aria-label="핵심 KPI">
+      <article class="kpi">
+        <div class="label">누적 수집 메시지</div>
+        <div class="value" id="kpiMessages">-</div>
+        <div class="hint">전체 룸에서 저장된 메시지 수</div>
+      </article>
+      <article class="kpi">
+        <div class="label">누적 이벤트</div>
+        <div class="value" id="kpiEvents">-</div>
+        <div class="hint">파싱/추출된 이벤트 총 건수</div>
+      </article>
+      <article class="kpi">
+        <div class="label">최근 메시지 시각</div>
+        <div class="value small" id="kpiLast">-</div>
+        <div class="hint">수집 파이프라인 최신 입력 시점</div>
+      </article>
+      <article class="kpi">
+        <div class="label">24시간 스킵 합계</div>
+        <div class="value" id="kpiSkips">-</div>
+        <div class="hint" id="skipHint">품질 이슈 확인 중</div>
+        <span class="pill" id="skipBadge">감시 상태: 준비</span>
+      </article>
+    </section>
+
+    <section class="grid" aria-label="분포 분석">
+      <article class="panel span4">
+        <h2>이벤트 유형 분포</h2>
+        <div class="desc">누적 기준으로 이벤트 유형 편중 여부를 확인합니다.</div>
+        <div class="table-wrap"><table id="tableTypes"></table></div>
+        <div class="state" id="stateTypes" hidden>불러오는 중...</div>
+      </article>
+      <article class="panel span4">
+        <h2>상위 룸 메시지 분포</h2>
+        <div class="desc">운영 집중이 필요한 룸을 빠르게 식별합니다.</div>
+        <div class="table-wrap"><table id="tableRooms"></table></div>
+        <div class="state" id="stateRooms" hidden>불러오는 중...</div>
+      </article>
+      <article class="panel span4">
+        <h2>24시간 스킵 사유</h2>
+        <div class="desc">파서/정합성 이슈를 사유별로 모니터링합니다.</div>
+        <div class="table-wrap"><table id="tableSkips"></table></div>
+        <div class="state" id="stateSkips" hidden>불러오는 중...</div>
+      </article>
+    </section>
+
+    <section class="grid" aria-label="최근 이벤트">
+      <article class="panel span8">
+        <h2>최근 이벤트 피드</h2>
+        <div class="desc">최신 이벤트를 룸/상품/신뢰도 단위로 확인합니다.</div>
+        <ul class="feed" id="feedEvents"></ul>
+        <div class="state" id="stateEvents" hidden>불러오는 중...</div>
+      </article>
+      <article class="panel span4">
+        <h2>운영 체크포인트</h2>
+        <div class="desc">상태 해석 기준을 한글 운영 문구로 통일했습니다.</div>
+        <ul class="feed" style="max-height:none">
+          <li>
+            <div class="feed-top"><strong>정상</strong><span class="event-badge">모니터링</span></div>
+            <div class="feed-sub">최근 메시지 시각이 갱신되고 스킵이 낮게 유지되는 상태</div>
+          </li>
+          <li>
+            <div class="feed-top"><strong>주의</strong><span class="event-badge">품질 확인</span></div>
+            <div class="feed-sub">특정 스킵 사유 급증 또는 특정 룸 메시지 급감 감지 상태</div>
+          </li>
+          <li>
+            <div class="feed-top"><strong>점검 필요</strong><span class="event-badge">장애 대응</span></div>
+            <div class="feed-sub">API 오류 지속, 이벤트 피드 공백, 최근 메시지 미갱신 동반 상태</div>
+          </li>
+        </ul>
+      </article>
+    </section>
+
+    <p class="note" id="footerUpdated">마지막 새로고침: -</p>
+  </main>
+
+  <script>
+    const REFRESH_MS = 7000;
+    const $ = (id) => document.getElementById(id);
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+    function formatNumber(n) { return (typeof n === 'number' && !Number.isNaN(n)) ? n.toLocaleString('ko-KR') : '-'; }
+    function formatDate(v) {
+      if (!v) return '-';
+      const d = new Date(v);
+      return Number.isNaN(d.getTime()) ? escapeHtml(v) : d.toLocaleString('ko-KR', { hour12: false });
+    }
+
+    function setHealth(kind, text) {
+      const chip = $('chipHealth');
+      chip.className = `chip ${kind}`;
+      chip.textContent = text;
+    }
+
+    function setState(tableId, stateId, text, isError = false) {
+      const table = $(tableId);
+      const state = $(stateId);
+      if (!text) {
+        table.hidden = false;
+        state.hidden = true;
+        state.classList.remove('error');
+        return;
+      }
+      table.hidden = true;
+      state.hidden = false;
+      state.textContent = text;
+      state.classList.toggle('error', isError);
+    }
+
+    async function fetchJson(url) {
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`${url} 응답 ${r.status}`);
+      return r.json();
+    }
+
+    function renderDist(tableId, labelKey, countKey, rows, labelText) {
+      const table = $(tableId);
+      if (!rows.length) { table.innerHTML = ''; return false; }
+      const max = Math.max(...rows.map((r) => Number(r[countKey] || 0)), 1);
+      table.innerHTML = `
+        <thead><tr><th>${labelText}</th><th class="num">건수</th><th>비율</th></tr></thead>
+        <tbody>
+          ${rows.map((r) => {
+            const count = Number(r[countKey] || 0);
+            const p = Math.round((count / max) * 100);
+            return `<tr>
+              <td>${escapeHtml(r[labelKey] || '-')}</td>
+              <td class="num">${formatNumber(count)}</td>
+              <td><div class="bar-wrap"><div class="bar"><span style="width:${p}%"></span></div><span class="mono">${p}%</span></div></td>
+            </tr>`;
+          }).join('')}
+        </tbody>`;
+      return true;
+    }
+
+    function renderSkips(rows) {
+      const table = $('tableSkips');
+      if (!rows.length) { table.innerHTML = ''; return false; }
+      const max = Math.max(...rows.map((r) => Number(r.count || 0)), 1);
+      table.innerHTML = `
+        <thead><tr><th>사유</th><th class="num">건수</th><th>강도</th></tr></thead>
+        <tbody>
+          ${rows.map((r) => {
+            const c = Number(r.count || 0);
+            const p = Math.round((c / max) * 100);
+            return `<tr>
+              <td>${escapeHtml(r.reason || '-')}</td>
+              <td class="num" style="color:var(--bad)">${formatNumber(c)}</td>
+              <td><div class="bar-wrap"><div class="bar"><span style="width:${p}%;background:linear-gradient(90deg,#ff8a99,#ffc991)"></span></div><span class="mono">${p}%</span></div></td>
+            </tr>`;
+          }).join('')}
+        </tbody>`;
+      return true;
+    }
+
+    function eventTone(type) {
+      const t = (type || '').toUpperCase();
+      if (t.includes('DOWN') || t.includes('RESTOCK')) return 'ok-tone';
+      if (t.includes('UP') || t.includes('SOLD_OUT')) return 'bad-tone';
+      return '';
+    }
+
+    function renderFeed(items) {
+      const feed = $('feedEvents');
+      if (!items.length) { feed.innerHTML = ''; return false; }
+      feed.innerHTML = items.map((x) => {
+        const conf = x.confidence == null ? '-' : Number(x.confidence).toFixed(3);
+        return `<li>
+          <div class="feed-top">
+            <span class="event-badge ${eventTone(x.event_type)}">${escapeHtml(x.event_type || 'UNKNOWN')}</span>
+            <span class="mono">${formatDate(x.created_at)}</span>
+          </div>
+          <div class="feed-main"><strong>${escapeHtml(x.vendor || '-')}</strong> / ${escapeHtml(x.product_name || '-')}</div>
+          <div class="feed-sub">룸: ${escapeHtml(x.room_name || '-')} · 신뢰도: <span class="mono">${escapeHtml(conf)}</span></div>
+        </li>`;
+      }).join('');
+      return true;
+    }
+
+    function loadingState() {
+      setHealth('status-loading', '로딩 중');
+      setState('tableTypes', 'stateTypes', '이벤트 유형을 불러오는 중입니다.');
+      setState('tableRooms', 'stateRooms', '룰별 분포를 불러오는 중입니다.');
+      setState('tableSkips', 'stateSkips', '스킵 사유를 불러오는 중입니다.');
+      setState('feedEvents', 'stateEvents', '최근 이벤트를 불러오는 중입니다.');
+    }
+
+    async function load() {
+      loadingState();
+      try {
+        const [summary, quality, recent] = await Promise.all([
+          fetchJson('/stats/summary'),
+          fetchJson('/stats/quality?limit_hours=24'),
+          fetchJson('/events/recent?limit=25')
+        ]);
+
+        const skips = Array.isArray(quality.skip_reasons) ? quality.skip_reasons : [];
+        const skipTotal = skips.reduce((a, b) => a + Number(b.count || 0), 0);
+
+        $('kpiMessages').textContent = formatNumber(summary.messages);
+        $('kpiEvents').textContent = formatNumber(summary.events);
+        $('kpiLast').textContent = formatDate(summary.last_message_at);
+        $('kpiSkips').textContent = formatNumber(skipTotal);
+        $('skipHint').textContent = skipTotal > 0
+          ? `최근 24시간 ${formatNumber(skips.length)}개 스킵 사유 감지`
+          : '최근 24시간 스킵 사유 없음';
+        $('skipBadge').textContent = skipTotal > 0 ? '감시 상태: 주의 필요' : '감시 상태: 안정';
+
+        const hasTypes = renderDist('tableTypes', 'type', 'count', Array.isArray(summary.events_by_type) ? summary.events_by_type : [], '이벤트 유형');
+        setState('tableTypes', 'stateTypes', hasTypes ? '' : '표시할 이벤트 유형이 없습니다.');
+
+        const hasRooms = renderDist('tableRooms', 'room', 'count', Array.isArray(summary.top_rooms) ? summary.top_rooms : [], '룸 이름');
+        setState('tableRooms', 'stateRooms', hasRooms ? '' : '표시할 룸 데이터가 없습니다.');
+
+        const hasSkips = renderSkips(skips);
+        setState('tableSkips', 'stateSkips', hasSkips ? '' : '최근 24시간 스킵 사유가 없습니다.');
+
+        const hasEvents = renderFeed(Array.isArray(recent.items) ? recent.items : []);
+        setState('feedEvents', 'stateEvents', hasEvents ? '' : '최근 이벤트가 없습니다.');
+
+        const now = new Date().toLocaleString('ko-KR', { hour12: false });
+        $('chipUpdated').textContent = `업데이트: ${now}`;
+        $('footerUpdated').textContent = `마지막 새로고침: ${now}`;
+        setHealth('status-ok', '정상 수집 중');
+      } catch (e) {
+        const msg = `데이터를 불러오지 못했습니다. (${escapeHtml(e.message)})`;
+        setHealth('status-error', 'API 오류');
+        setState('tableTypes', 'stateTypes', msg, true);
+        setState('tableRooms', 'stateRooms', msg, true);
+        setState('tableSkips', 'stateSkips', msg, true);
+        setState('feedEvents', 'stateEvents', msg, true);
+      }
+    }
+
+    load();
+    setInterval(load, REFRESH_MS);
+  </script>
 </body>
 </html>

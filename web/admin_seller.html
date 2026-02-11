@@ -5,28 +5,40 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Seller Admin | Priceit</title>
   <style>
-    :root{--bg:#0b1220;--panel:#13203a;--line:#2d4269;--text:#ecf3ff;--muted:#a5b6d1;--warn:#ffb86b;--bad:#ff7b91;--ok:#71e3b0}
-    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Apple SD Gothic Neo',sans-serif}
-    .page{max-width:1200px;margin:0 auto;padding:16px;display:grid;gap:12px}
+    :root{--bg:#0b1220;--panel:#13203a;--line:#2d4269;--text:#ecf3ff;--muted:#a5b6d1;--warn:#ffb86b;--bad:#ff7b91;--ok:#71e3b0;--chip:#0f1a31}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Apple SD Gothic Neo',sans-serif}
+    .page{max-width:1260px;margin:0 auto;padding:16px;display:grid;gap:12px}
     .head,.panel{border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:14px}
     .head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
     .links a{color:#9ec5ff;text-decoration:none;margin-left:10px}
-    .grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
-    .card{border:1px solid var(--line);border-radius:10px;padding:10px;background:#0f1a31}
-    .card .k{font-size:11px;color:var(--muted)} .card .v{font-size:24px;margin-top:4px}
-    table{width:100%;border-collapse:collapse} th,td{padding:8px;border-bottom:1px solid var(--line);font-size:13px;text-align:left}
+    .muted{color:var(--muted)}
+    .section-title{margin:0 0 10px}
+    .kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+    .card{border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--chip)}
+    .card .k{font-size:11px;color:var(--muted)} .card .v{font-size:21px;margin-top:4px}
+    .v.bad{color:var(--bad)} .v.warn{color:var(--warn)} .v.ok{color:var(--ok)}
+    .aux-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+    .aux{border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--chip);text-align:center}
+    .aux .k{font-size:11px;color:var(--muted)} .aux .v{font-size:17px;margin-top:4px}
+    .stack{display:grid;gap:8px}
+    .item{border:1px solid var(--line);background:var(--chip);border-radius:10px;padding:10px}
+    .item h4{margin:0 0 6px;font-size:14px}
+    .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+    .chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:2px 8px;font-size:11px;background:#101f3b}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:8px;border-bottom:1px solid var(--line);font-size:13px;text-align:left;vertical-align:top}
     th{color:var(--muted);font-size:12px}
-    .badge{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:2px 8px;font-size:11px;background:#101f3b}
-    .need{color:var(--warn)} .danger{color:var(--bad)} .ok{color:var(--ok)} .muted{color:var(--muted)}
-    @media (max-width:980px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    .danger{color:var(--bad)} .warn{color:var(--warn)} .ok{color:var(--ok)}
+    @media (max-width:980px){.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.aux-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
   </style>
 </head>
 <body>
   <main class="page">
     <section class="head">
       <div>
-        <h1 style="margin:0">셀러 어드민</h1>
-        <div class="muted">판매/운영 핵심 알람만 노출 (잡음 최소화)</div>
+        <h1 style="margin:0">셀러 어드민 (콘텐츠 중심)</h1>
+        <div class="muted">이벤트 나열보다, 지금 바로 의사결정에 필요한 내용만 요약</div>
       </div>
       <div class="links">
         <a href="/dashboard">기존 대시보드</a>
@@ -35,69 +47,112 @@
     </section>
 
     <section class="panel">
-      <h2 style="margin:0 0 10px">오늘 주요 알람 요약 (7유형 고정)</h2>
-      <div id="summary" class="grid"></div>
+      <h2 class="section-title">1) 지금 당장 할 일 Top N</h2>
+      <div id="topActions" class="stack"><div class="muted">로딩 중...</div></div>
     </section>
 
     <section class="panel">
-      <h2 style="margin:0 0 10px">내 대응 필요 항목 (품절/지연/가격변동)</h2>
+      <h2 class="section-title">2) 가격/품절/지연 핵심 내용 요약</h2>
+      <div id="headlineKpi" class="kpi-grid"></div>
+      <div id="evidenceBox" class="muted" style="margin-top:8px"></div>
+    </section>
+
+    <section class="panel">
+      <h2 class="section-title">3) 상품별 변경 내용 (사람이 읽는 문장)</h2>
       <table>
-        <thead><tr><th>시각</th><th>유형</th><th>상품</th><th>룸</th><th>가격변화</th></tr></thead>
-        <tbody id="actionRows"><tr><td colspan="5" class="muted">로딩 중...</td></tr></tbody>
+        <thead><tr><th>상품</th><th>핵심 변경</th><th>근거(빈도/폭/최근)</th><th>룸</th></tr></thead>
+        <tbody id="changeRows"><tr><td colspan="4" class="muted">로딩 중...</td></tr></tbody>
       </table>
     </section>
 
     <section class="panel">
-      <h2 style="margin:0 0 10px">최근 알람 피드</h2>
-      <table>
-        <thead><tr><th>시각</th><th>유형</th><th>업체/상품</th><th>룸</th><th>신뢰도</th></tr></thead>
-        <tbody id="feedRows"><tr><td colspan="5" class="muted">로딩 중...</td></tr></tbody>
-      </table>
+      <h2 class="section-title">4) 권장 액션</h2>
+      <ul id="recommendRows" style="margin:0;padding-left:18px"><li class="muted">로딩 중...</li></ul>
+    </section>
+
+    <section class="panel">
+      <h2 class="section-title">보조 지표: 알람유형 7종</h2>
+      <div id="summary" class="aux-grid"></div>
     </section>
   </main>
 <script>
 const ORDER=['PRICE_UP','PRICE_DOWN','SOLD_OUT','RESTOCK','DELAY_NOTICE','NEW_ITEM','NOTICE'];
-const tone=(t)=>({PRICE_UP:'danger',PRICE_DOWN:'ok',SOLD_OUT:'danger',RESTOCK:'ok',DELAY_NOTICE:'need',NEW_ITEM:'',NOTICE:''}[t]||'');
+const tone=(t)=>({PRICE_UP:'danger',PRICE_DOWN:'ok',SOLD_OUT:'danger',RESTOCK:'ok',DELAY_NOTICE:'warn',NEW_ITEM:'',NOTICE:''}[t]||'');
 const esc=(v)=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
 const fmt=(v)=>{if(!v)return '-'; const d=new Date(v); return Number.isNaN(d.getTime())?esc(v):d.toLocaleString('ko-KR',{hour12:false});};
-const money=(v)=>Number.isFinite(v)?v.toLocaleString('ko-KR'):'-';
+const num=(v)=>Number.isFinite(v)?v.toLocaleString('ko-KR'):'-';
 
 function renderSummary(items){
   const m=new Map((items||[]).map(x=>[x.type,x.count]));
-  document.getElementById('summary').innerHTML=ORDER.map(t=>`<div class='card'><div class='k'>${t}</div><div class='v ${tone(t)}'>${(m.get(t)||0).toLocaleString('ko-KR')}</div></div>`).join('');
+  document.getElementById('summary').innerHTML=ORDER.map(t=>`<div class='aux'><div class='k'>${t}</div><div class='v ${tone(t)}'>${num(m.get(t)||0)}</div></div>`).join('');
 }
-function renderRows(id, rows, mapper, colspan){
-  const el=document.getElementById(id);
-  if(!rows?.length){el.innerHTML=`<tr><td colspan='${colspan}' class='muted'>데이터 없음</td></tr>`; return;}
-  el.innerHTML=rows.map(mapper).join('');
+function renderTopActions(items){
+  const box=document.getElementById('topActions');
+  if(!items?.length){box.innerHTML='<div class="muted">지금 즉시 조치할 항목 없음</div>';return;}
+  box.innerHTML=items.map((x,i)=>`<article class='item'>
+    <h4>${i+1}. <span class='${tone(x.event_type)}'>[${esc(x.event_type)}]</span> ${esc(x.item||'-')}</h4>
+    <div>이유: ${esc(x.reason||'-')}</div>
+    <div>권장: <b>${esc(x.recommended_action||'-')}</b></div>
+    <div class='chips'>
+      <span class='chip'>점수 ${num(x.priority_score)}</span>
+      <span class='chip'>최근 ${fmt(x.created_at)}</span>
+      <span class='chip'>룸 ${esc(x.room_name||'-')}</span>
+      <span class='chip'>신뢰도 ${x?.evidence_fields?.confidence==null?'-':Number(x.evidence_fields.confidence).toFixed(3)}</span>
+      <span class='chip'>변동폭 ${x?.evidence_fields?.price_delta_rate_pct==null?'-':`${x.evidence_fields.price_delta_rate_pct}%`}</span>
+    </div>
+  </article>`).join('');
+}
+function renderHeadline(d){
+  const cnt=d?.evidence_fields?.event_type_counts||{};
+  const urgent=(d?.action_priority_list||[]).length;
+  const soldOut=cnt.SOLD_OUT||0;
+  const delay=cnt.DELAY_NOTICE||0;
+  const price=(cnt.PRICE_UP||0)+(cnt.PRICE_DOWN||0);
+  const risk=(d?.stock_risk_items||[]).length;
+  const cards=[
+    {k:'즉시 조치 필요',v:urgent,c:'bad'},
+    {k:'가격 변동 건수',v:price,c:'warn'},
+    {k:'품절/지연 리스크',v:risk||soldOut+delay,c:'bad'},
+    {k:'변동 상품 수',v:d?.evidence_fields?.items_with_changes||0,c:'ok'}
+  ];
+  document.getElementById('headlineKpi').innerHTML=cards.map(x=>`<div class='card'><div class='k'>${x.k}</div><div class='v ${x.c}'>${num(x.v)}</div></div>`).join('');
+  document.getElementById('evidenceBox').innerText=`근거: 최근 ${d?.evidence_fields?.window_hours??'-'}시간, 생성시각 ${fmt(d?.evidence_fields?.generated_at)}, 액션 ${num(d?.evidence_fields?.action_item_count||0)}건 / 리스크 ${num(d?.evidence_fields?.stock_risk_count||0)}건`;
+}
+function renderChangeRows(rows){
+  const el=document.getElementById('changeRows');
+  if(!rows?.length){el.innerHTML="<tr><td colspan='4' class='muted'>데이터 없음</td></tr>";return;}
+  el.innerHTML=rows.map(x=>`<tr>
+    <td>${esc(x.item||'-')}</td>
+    <td>${esc(x.human_summary||'-')}</td>
+    <td>빈도 ${num(x.event_count)} / 최대변동 ${x.max_abs_price_change_pct==null?'-':`${x.max_abs_price_change_pct}%`} / 최근 ${fmt(x.last_event_at)}</td>
+    <td>${esc((x.recent_rooms||[]).join(', ')||'-')}</td>
+  </tr>`).join('');
+}
+function renderRecommendations(items){
+  const el=document.getElementById('recommendRows');
+  if(!items?.length){el.innerHTML='<li class="muted">권장 액션 없음</li>';return;}
+  el.innerHTML=items.map(x=>`<li>${esc(x)}</li>`).join('');
 }
 
 async function load(){
   try{
-    const r=await fetch('/stats/seller?limit_hours=24&feed_limit=30&action_limit=20');
+    const r=await fetch('/stats/seller?limit_hours=24&feed_limit=30&action_limit=10');
     if(!r.ok) throw new Error('API '+r.status);
     const d=await r.json();
     renderSummary(d.today_alert_summary||[]);
-    renderRows('actionRows', d.action_required_items, (x)=>`<tr>
-      <td>${fmt(x.created_at)}</td>
-      <td><span class='badge ${tone(x.event_type)}'>${esc(x.event_type||'-')}</span></td>
-      <td>${esc(x.vendor||'-')} / ${esc(x.product_name||'-')}</td>
-      <td>${esc(x.room_name||'-')}</td>
-      <td>${money(x.old_price)} → ${money(x.new_price)}</td>
-    </tr>`, 5);
-    renderRows('feedRows', d.recent_alert_feed, (x)=>`<tr>
-      <td>${fmt(x.created_at)}</td>
-      <td><span class='badge ${tone(x.event_type)}'>${esc(x.event_type||'-')}</span></td>
-      <td>${esc(x.vendor||'-')} / ${esc(x.product_name||'-')}</td>
-      <td>${esc(x.room_name||'-')}</td>
-      <td>${x.confidence==null?'-':Number(x.confidence).toFixed(3)}</td>
-    </tr>`, 5);
+    renderTopActions(d.action_priority_list||[]);
+    renderHeadline(d);
+    renderChangeRows((d.change_summary_by_item||[]).slice(0,20));
+    renderRecommendations(d.recommended_actions||[]);
   }catch(e){
-    renderRows('actionRows', [], null, 5);
-    renderRows('feedRows', [], null, 5);
+    document.getElementById('topActions').innerHTML='<div class="muted">불러오기 실패</div>';
+    document.getElementById('headlineKpi').innerHTML='';
+    document.getElementById('changeRows').innerHTML="<tr><td colspan='4' class='muted'>불러오기 실패</td></tr>";
+    document.getElementById('recommendRows').innerHTML='<li class="muted">불러오기 실패</li>';
+    renderSummary([]);
   }
 }
-load(); setInterval(load,7000);
+load(); setInterval(load,9000);
 </script>
 </body>
 </html>

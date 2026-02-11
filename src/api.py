@@ -199,6 +199,214 @@ def stats_seller(limit_hours: int = 24, feed_limit: int = 30, action_limit: int 
     )
     action_items = [dict(r) for r in cur.fetchall()]
 
+    # seller insight model (content-focused)
+    cur.execute(
+        """
+        select id, room_name, vendor, product_name, event_type, old_price, new_price, stock_status, confidence, created_at
+        from events
+        where datetime(created_at) >= datetime('now', ?)
+          and event_type in ({})
+        order by datetime(created_at) desc, id desc
+        """.format(placeholders),
+        [f"-{limit_hours} hours", *ALERT_TYPES_ORDER],
+    )
+    scoped_events = [dict(r) for r in cur.fetchall()]
+
+    def clean_text(value):
+        text = (value or "").strip()
+        if not text:
+            return ""
+        # parser noise guard: timestamp-like 문자열은 아이템 라벨에서 제외
+        if len(text) >= 19 and text[4:5] == "-" and text[7:8] == "-" and text[10:11] in {"T", " "}:
+            return ""
+        return text
+
+    def item_key(row):
+        vendor = clean_text(row.get("vendor"))
+        product = clean_text(row.get("product_name"))
+        return (vendor.lower(), product.lower())
+
+    def item_label(row):
+        vendor = clean_text(row.get("vendor"))
+        product = clean_text(row.get("product_name"))
+        if vendor and product:
+            return f"{vendor} / {product}"
+        if product:
+            return product
+        if vendor:
+            return vendor
+        return "미분류 상품"
+
+    def price_evidence(row):
+        old_price = row.get("old_price")
+        new_price = row.get("new_price")
+        if old_price in (None, "") or new_price in (None, ""):
+            return None
+        try:
+            old_i = int(old_price)
+            new_i = int(new_price)
+        except (TypeError, ValueError):
+            return None
+        if old_i == 0:
+            return {"old_price": old_i, "new_price": new_i, "delta": new_i - old_i, "delta_rate_pct": None}
+        delta = new_i - old_i
+        return {
+            "old_price": old_i,
+            "new_price": new_i,
+            "delta": delta,
+            "delta_rate_pct": round((delta / old_i) * 100, 2),
+        }
+
+    aggregated = {}
+    for row in scoped_events:
+        key = item_key(row)
+        if key not in aggregated:
+            aggregated[key] = {
+                "item": item_label(row),
+                "vendor": row.get("vendor"),
+                "product_name": row.get("product_name"),
+                "last_event_at": row.get("created_at"),
+                "event_count": 0,
+                "price_up_count": 0,
+                "price_down_count": 0,
+                "sold_out_count": 0,
+                "delay_notice_count": 0,
+                "max_abs_price_change_pct": 0.0,
+                "recent_rooms": set(),
+                "recent_event_types": set(),
+            }
+        rec = aggregated[key]
+        rec["event_count"] += 1
+        rec["recent_rooms"].add(row.get("room_name") or "-")
+        rec["recent_event_types"].add(row.get("event_type"))
+        if row.get("event_type") == "PRICE_UP":
+            rec["price_up_count"] += 1
+        if row.get("event_type") == "PRICE_DOWN":
+            rec["price_down_count"] += 1
+        if row.get("event_type") == "SOLD_OUT":
+            rec["sold_out_count"] += 1
+        if row.get("event_type") == "DELAY_NOTICE":
+            rec["delay_notice_count"] += 1
+        pe = price_evidence(row)
+        if pe and pe.get("delta_rate_pct") is not None:
+            rec["max_abs_price_change_pct"] = max(rec["max_abs_price_change_pct"], abs(pe["delta_rate_pct"]))
+
+    change_summary_by_item = []
+    for rec in aggregated.values():
+        sentence = (
+            f"최근 {limit_hours}시간 동안 {rec['item']}에서 {rec['event_count']}건 변동 "
+            f"(인상 {rec['price_up_count']} / 인하 {rec['price_down_count']} / 품절 {rec['sold_out_count']} / 지연 {rec['delay_notice_count']})."
+        )
+        change_summary_by_item.append(
+            {
+                "item": rec["item"],
+                "vendor": rec["vendor"],
+                "product_name": rec["product_name"],
+                "last_event_at": rec["last_event_at"],
+                "event_count": rec["event_count"],
+                "price_up_count": rec["price_up_count"],
+                "price_down_count": rec["price_down_count"],
+                "sold_out_count": rec["sold_out_count"],
+                "delay_notice_count": rec["delay_notice_count"],
+                "max_abs_price_change_pct": round(rec["max_abs_price_change_pct"], 2),
+                "recent_rooms": sorted(rec["recent_rooms"]),
+                "recent_event_types": sorted([t for t in rec["recent_event_types"] if t]),
+                "human_summary": sentence,
+            }
+        )
+
+    change_summary_by_item.sort(
+        key=lambda x: (x["sold_out_count"] + x["delay_notice_count"], x["event_count"], x["max_abs_price_change_pct"]),
+        reverse=True,
+    )
+
+    stock_risk_items = []
+    for row in scoped_events:
+        if row.get("event_type") not in {"SOLD_OUT", "DELAY_NOTICE"}:
+            continue
+        risk_level = "HIGH" if row.get("event_type") == "SOLD_OUT" else "MEDIUM"
+        risk_reason = "품절 발생" if row.get("event_type") == "SOLD_OUT" else "출고/배송 지연 공지"
+        stock_risk_items.append(
+            {
+                "item": item_label(row),
+                "vendor": row.get("vendor"),
+                "product_name": row.get("product_name"),
+                "event_type": row.get("event_type"),
+                "risk_level": risk_level,
+                "risk_reason": risk_reason,
+                "last_seen_at": row.get("created_at"),
+                "room_name": row.get("room_name"),
+                "evidence_fields": {
+                    "confidence": row.get("confidence"),
+                    "stock_status": row.get("stock_status"),
+                    "last_seen_at": row.get("created_at"),
+                },
+            }
+        )
+
+    stock_risk_items = stock_risk_items[: min(max(action_limit, 1), 50)]
+
+    action_priority_list = []
+    for row in scoped_events[: min(max(action_limit * 3, 10), 150)]:
+        event_type = row.get("event_type")
+        if event_type not in {"SOLD_OUT", "DELAY_NOTICE", "PRICE_UP", "PRICE_DOWN"}:
+            continue
+        base = {"SOLD_OUT": 100, "DELAY_NOTICE": 80, "PRICE_UP": 65, "PRICE_DOWN": 45}.get(event_type, 40)
+        pe = price_evidence(row)
+        price_weight = min(20, int(abs(pe.get("delta_rate_pct", 0)))) if pe and pe.get("delta_rate_pct") is not None else 0
+        score = base + price_weight
+        if event_type == "SOLD_OUT":
+            recommended = "대체 상품 노출/재입고 일정 확인 후 즉시 공지"
+            reason = "주문 불가 상태"
+        elif event_type == "DELAY_NOTICE":
+            recommended = "지연 사유/예상 출고일을 상품 상세와 공지에 반영"
+            reason = "고객 CS 증가 위험"
+        elif event_type == "PRICE_UP":
+            recommended = "마진/경쟁가 비교 후 판매가·프로모션 조정"
+            reason = "원가 상승 반영 필요"
+        else:
+            recommended = "가격 인하 폭 대비 판매량/마진 영향 확인"
+            reason = "가격 인하 기회 또는 과도한 할인 점검"
+
+        action_priority_list.append(
+            {
+                "priority_score": score,
+                "event_type": event_type,
+                "item": item_label(row),
+                "room_name": row.get("room_name"),
+                "created_at": row.get("created_at"),
+                "reason": reason,
+                "recommended_action": recommended,
+                "evidence_fields": {
+                    "confidence": row.get("confidence"),
+                    "old_price": row.get("old_price"),
+                    "new_price": row.get("new_price"),
+                    "price_delta": (pe or {}).get("delta"),
+                    "price_delta_rate_pct": (pe or {}).get("delta_rate_pct"),
+                    "last_seen_at": row.get("created_at"),
+                },
+            }
+        )
+
+    action_priority_list.sort(key=lambda x: (x["priority_score"], x["created_at"] or ""), reverse=True)
+    action_priority_list = action_priority_list[: min(max(action_limit, 1), 50)]
+
+    recommended_actions = []
+    for item in action_priority_list:
+        text = f"[{item['event_type']}] {item['item']}: {item['recommended_action']}"
+        if text not in recommended_actions:
+            recommended_actions.append(text)
+    recommended_actions = recommended_actions[: min(max(action_limit, 1), 20)]
+
+    evidence_fields = {
+        "window_hours": limit_hours,
+        "generated_at": scoped_events[0]["created_at"] if scoped_events else None,
+        "event_type_counts": {k: int(v) for k, v in counts.items()},
+        "action_item_count": len(action_priority_list),
+        "stock_risk_count": len(stock_risk_items),
+        "items_with_changes": len(change_summary_by_item),
+    }
+
     conn.close()
     return {
         "hours": limit_hours,
@@ -207,7 +415,14 @@ def stats_seller(limit_hours: int = 24, feed_limit: int = 30, action_limit: int 
         "recent_alert_feed": recent_feed,
         "action_required_types": ACTION_REQUIRED_TYPES,
         "action_required_items": action_items,
+        # content-focused seller insights
+        "action_priority_list": action_priority_list,
+        "change_summary_by_item": change_summary_by_item,
+        "stock_risk_items": stock_risk_items,
+        "recommended_actions": recommended_actions,
+        "evidence_fields": evidence_fields,
     }
+
 
 
 @app.get("/stats/control-tower")

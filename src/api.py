@@ -1,5 +1,6 @@
 from typing import Optional
 from pathlib import Path
+from collections import defaultdict, deque
 import sqlite3
 import re
 
@@ -40,12 +41,18 @@ ITEM_NAME_NOISE_KEYWORDS = [
     "긴급공지", "중요공지", "공지", "안내", "알림", "배송", "출고", "마감", "확인", "연휴",
     "품절", "품절안내", "재입고", "입고", "가격인상", "가격인하", "가격변동", "전격 오픈",
     "인상", "인하", "특가", "필독", "사항", "슈퍼", "명절", "신상품", "오픈", "세일",
+    "상품별", "상품", "최고집", "전국", "1위", "전국1위",
 ]
 
 PRODUCT_KEYWORDS = [
     "사과", "부사", "감귤", "딸기", "토마토", "감자", "고구마", "양파", "마늘", "오이",
     "상추", "시금치", "구좌당근", "당근", "키위", "쌀", "잡곡", "아몬드", "호두", "버즈", "애플워치",
 ]
+
+
+SELLER_KEYWORD_STOPWORDS = {
+    "상품", "상품별", "공지", "안내", "긴급", "최고집", "팜허브", "전국", "전국1위", "특가", "신상품", "배송",
+}
 
 
 def _load_seller_product_keywords() -> list[str]:
@@ -57,7 +64,18 @@ def _load_seller_product_keywords() -> list[str]:
 
         payload = json.loads(catalog_path.read_text(encoding="utf-8"))
         kws = payload.get("keywords") or []
-        return [str(k).strip() for k in kws if str(k).strip()]
+        out = []
+        for k in kws:
+            s = str(k).strip()
+            if not s or len(s) < 2:
+                continue
+            ns = re.sub(r"[^0-9a-z가-힣]", "", s.lower())
+            if not ns or s in SELLER_KEYWORD_STOPWORDS:
+                continue
+            if any(sw in s for sw in ["공지", "안내", "배송", "출고", "긴급", "마감"]):
+                continue
+            out.append(s)
+        return out
     except Exception:
         return []
 
@@ -67,9 +85,112 @@ if _PRODUCT_KEYWORDS_SELLER:
     PRODUCT_KEYWORDS = sorted(set(PRODUCT_KEYWORDS + _PRODUCT_KEYWORDS_SELLER), key=lambda x: (-len(x), x))
 
 
+def _norm_for_match(s: str) -> str:
+    s = (s or "").lower()
+    s = re.sub(r"[^0-9a-z가-힣]", "", s)
+    return s
+
+
+_PRODUCT_KEYWORD_NORM_MAP = {}
+for kw in PRODUCT_KEYWORDS:
+    nk = _norm_for_match(kw)
+    if nk and nk not in _PRODUCT_KEYWORD_NORM_MAP:
+        _PRODUCT_KEYWORD_NORM_MAP[nk] = kw
+
+
+def _load_seller_terms_map() -> dict[str, str]:
+    p = Path(__file__).resolve().parent.parent / "data" / "seller_product_terms_20260212.json"
+    if not p.exists():
+        return {}
+    try:
+        import json
+
+        obj = json.loads(p.read_text(encoding="utf-8"))
+        terms = obj.get("terms") or {}
+        out = {}
+        for k, v in terms.items():
+            nk = _norm_for_match(str(k))
+            vv = str(v).strip()
+            if nk and vv:
+                out[nk] = vv
+        return out
+    except Exception:
+        return {}
+
+
+_SELLER_TERMS_MAP = _load_seller_terms_map()
+
+ROOM_CONTEXT_WINDOW = 5
+ROOM_CONTEXT_ELIGIBLE_TYPES = {"SOLD_OUT", "DELAY_NOTICE", "NOTICE", "PRICE_UP", "PRICE_DOWN", "RESTOCK"}
+NOTICE_BLOCK_PATTERNS = [
+    r"^\s*[#📢📌🔔🚨⚠️⭐️✨🔥]+\s*(?:긴급|중요)?\s*(?:공지|안내|알림|배송|출고|발주)",
+    r"^\s*(?:긴급|중요)?\s*(?:공지|안내|알림|배송|출고|발주)",
+    r"\b(?:필독|마감|전달사항|배송안내|출고안내|공지사항)\b",
+]
+
+STATUS_TOKENS = ["입고", "재입고", "출고", "품절", "일시품절", "가격변동", "가격인상", "가격인하", "인상", "인하"]
+
+
+def _looks_like_notice_header(s: str) -> bool:
+    t = _clean_text(s)
+    if not t:
+        return True
+    for pat in NOTICE_BLOCK_PATTERNS:
+        if re.search(pat, t, flags=re.IGNORECASE):
+            return True
+    emoji_hits = len(re.findall(r"[📢📌🔔🚨⚠️⭐✨🔥]", t))
+    if emoji_hits >= 2 and not any(pk in t for pk in PRODUCT_KEYWORDS):
+        return True
+    return False
+
+
+def _load_catalog_item_candidates() -> list[str]:
+    catalog_path = Path(__file__).resolve().parent.parent / "data" / "seller_product_catalog_20260212.json"
+    if not catalog_path.exists():
+        return []
+    try:
+        import json
+
+        payload = json.loads(catalog_path.read_text(encoding="utf-8"))
+        out = set()
+        for row in payload.get("base_name_top100") or []:
+            nm = str((row or {}).get("name") or "").strip()
+            if nm:
+                out.add(nm)
+        for nm in payload.get("keywords") or []:
+            s = str(nm or "").strip()
+            if not s:
+                continue
+            s = re.sub(r"\[[^\]]+\]", " ", s)
+            s = re.sub(r"\([^\)]*\)", " ", s)
+            s = re.sub(r"\b\d+(?:\.\d+)?\s*(?:kg|g|ml|l|L|개|입|팩|봉|박스|과)\b", " ", s)
+            s = re.sub(r"\b(?:세트|선물세트|가정용|정품|특품|상품|일반|혼합과|중과|대과|소과|중소과|중대과)\b", " ", s)
+            s = re.sub(r"\s+", " ", s).strip(" -:/")
+            if len(s) >= 2:
+                out.add(s)
+        cleaned = []
+        for s in out:
+            if any(sw in s for sw in ["공지", "안내", "출고", "배송", "발주", "가격변동"]):
+                continue
+            cleaned.append(s)
+        return sorted(cleaned, key=lambda x: (-len(x), x))
+    except Exception:
+        return []
+
+
+CATALOG_ITEM_CANDIDATES = _load_catalog_item_candidates()
+_CATALOG_ITEM_NORM_MAP = {}
+for item in CATALOG_ITEM_CANDIDATES:
+    ni = _norm_for_match(item)
+    if ni and ni not in _CATALOG_ITEM_NORM_MAP:
+        _CATALOG_ITEM_NORM_MAP[ni] = item
+
+
 def _is_noise_item_name(value: Optional[str]) -> bool:
     s = _clean_text(value)
     if not s:
+        return True
+    if _looks_like_notice_header(s):
         return True
     if len(s) <= 2:
         return True
@@ -77,7 +198,7 @@ def _is_noise_item_name(value: Optional[str]) -> bool:
         return True
     if re.match(r"^\d{1,2}월\s*\d{1,2}일", s):
         return True
-    if any(x in s for x in ["드립니다", "확인", "마감", "흐름", "관련", "사고", "연휴"]):
+    if any(x in s for x in ["드립니다", "확인", "마감", "흐름", "관련", "사고", "연휴", "됩니다", "필독"]):
         return True
     if any(x in s for x in ["🔺", "🔻", "⬆", "⬇", "★", "🔥"]) and not any(pk in s for pk in PRODUCT_KEYWORDS):
         return True
@@ -93,15 +214,106 @@ def _is_noise_item_name(value: Optional[str]) -> bool:
     return False
 
 
+def _extract_catalog_item_from_text(message_text: Optional[str]) -> Optional[str]:
+    s = _clean_text(message_text)
+    if not s:
+        return None
+    ns = _norm_for_match(s)
+    if not ns:
+        return None
+    best = None
+    best_len = 0
+    for ni, item in _CATALOG_ITEM_NORM_MAP.items():
+        if ni and ni in ns and len(ni) > best_len:
+            best = item
+            best_len = len(ni)
+    return best
+
+
+def _extract_template_item_from_text(message_text: Optional[str]) -> Optional[str]:
+    s = _clean_text(message_text)
+    if not s:
+        return None
+    patterns = [
+        r"(?:\d{1,2}월\s*\d{1,2}일\s*)?(?:\[[^\]]+\]\s*)?(?P<item>[가-힣A-Za-z][가-힣A-Za-z0-9\s]{1,24}?)\s*(?:재입고|입고|출고|품절|일시품절)",
+        r"(?:\[[^\]]+\]\s*)?(?P<item>[가-힣A-Za-z][가-힣A-Za-z0-9\s]{1,24}?)\s*(?:가격\s*변동|가격\s*인상|가격\s*인하|인상|인하)",
+    ]
+    for pat in patterns:
+        m = re.search(pat, s)
+        if not m:
+            continue
+        cand = re.sub(r"\s+", " ", (m.group("item") or "")).strip(" -:/")
+        if not cand:
+            continue
+        if any(tok in cand for tok in STATUS_TOKENS):
+            continue
+        if _is_noise_item_name(cand):
+            continue
+        if any(pk in cand for pk in PRODUCT_KEYWORDS):
+            return cand
+        catalog_hit = _extract_catalog_item_from_text(cand)
+        if catalog_hit:
+            return catalog_hit
+        if re.search(r"[가-힣]{2,}", cand):
+            return cand
+    return None
+
+
 def _extract_market_item_from_text(message_text: Optional[str]) -> Optional[str]:
     s = _clean_text(message_text)
     if not s:
         return None
-    s = re.sub(r"[\[\]{}()<>|]", " ", s)
-    s = re.sub(r"\s+", " ", s)
+
+    if _looks_like_notice_header(s):
+        return None
+
+    # 1) 원문 포함 매칭 (긴 키워드 우선)
+    s_plain = re.sub(r"[\[\]{}()<>|]", " ", s)
+    s_plain = re.sub(r"\s+", " ", s_plain)
     for kw in PRODUCT_KEYWORDS:
-        if kw in s:
+        if kw and kw in s_plain:
             return kw
+
+    # 2) 판매중 상품리스트(term map) 정규화 매칭 우선
+    ns = _norm_for_match(s)
+    if ns and _SELLER_TERMS_MAP:
+        best = None
+        best_len = 0
+        for nkw, canonical in _SELLER_TERMS_MAP.items():
+            if nkw and nkw in ns and len(nkw) > best_len:
+                best = canonical
+                best_len = len(nkw)
+        if best:
+            return best
+
+    # 3) seller catalog normalize 매칭
+    cat = _extract_catalog_item_from_text(s)
+    if cat:
+        return cat
+
+    # 4) 일반 키워드 정규화 매칭 (공백/슬래시/특수문자 제거)
+    if ns:
+        best = None
+        best_len = 0
+        for nkw, kw in _PRODUCT_KEYWORD_NORM_MAP.items():
+            if nkw and nkw in ns and len(nkw) > best_len:
+                best = kw
+                best_len = len(nkw)
+        if best:
+            return best
+
+    # 5) 팜허브 빈출 템플릿 매핑 (입고/출고/품절/가격변동)
+    tmpl = _extract_template_item_from_text(s)
+    if tmpl and not _is_noise_item_name(tmpl):
+        return tmpl
+
+    # 6) 농산물 패턴 fallback (예: 제주 구좌당근 입고)
+    m = re.search(r"([가-힣]{2,12})(?:\s*(?:입고|품절|인상|인하|출고|지연))", s)
+    if m:
+        cand = m.group(1)
+        if cand and not _is_noise_item_name(cand):
+            return cand
+
     return None
 
 
@@ -397,22 +609,44 @@ def stats_seller(limit_hours: int = 24, feed_limit: int = 30, action_limit: int 
     )
     scoped_events = [dict(r) for r in cur.fetchall()]
 
-    # 룸 문맥 기반 상품명 복원: 공지형/긴급형 문장에서 직전 확정 상품명을 상속
+    # 룸 문맥 기반 상품명 복원: 최근 N건 명시 상품 후보를 관리해 공지형/상태형 문구에 안전하게 상속
     scoped_events_chrono = sorted(scoped_events, key=lambda x: (x.get("created_at") or "", x.get("id") or 0))
-    room_last_named_item = {}
+    room_recent_named_items = defaultdict(lambda: deque(maxlen=ROOM_CONTEXT_WINDOW))
     resolved_item_name_by_event_id = {}
     for ev in scoped_events_chrono:
         item_fields = _extract_item_fields(ev.get("message_text"), vendor=ev.get("vendor"))
         best_name, source = _best_item_name(ev.get("product_name"), item_fields.get("item_name"), ev.get("vendor"), ev.get("message_text"))
         room = ev.get("room_name") or ""
         et = ev.get("event_type") or ""
-        if best_name == "미분류 상품" and et in {"SOLD_OUT", "DELAY_NOTICE", "NOTICE", "PRICE_UP", "PRICE_DOWN"}:
-            inherited = room_last_named_item.get(room)
-            if inherited:
-                best_name = inherited
-                source = "room_context"
-        elif best_name != "미분류 상품":
-            room_last_named_item[room] = best_name
+        msg = _clean_text(ev.get("message_text"))
+
+        is_explicit_name = best_name != "미분류 상품" and source in {"profile", "product_name", "message_keyword"}
+        if is_explicit_name and not _is_noise_item_name(best_name):
+            dq = room_recent_named_items[room]
+            if best_name in dq:
+                dq.remove(best_name)
+            dq.appendleft(best_name)
+
+        needs_context = best_name == "미분류 상품" or _looks_like_notice_header(msg)
+        if needs_context and et in ROOM_CONTEXT_ELIGIBLE_TYPES:
+            # 같은 메시지 내 템플릿 후보(입고/출고/품절/가격변동) 우선
+            tmpl = _extract_template_item_from_text(msg)
+            if tmpl and not _is_noise_item_name(tmpl):
+                best_name = tmpl
+                source = "template"
+            else:
+                # 최근 N건에서 가장 최근 명시 상품 상속
+                recent = room_recent_named_items.get(room) or []
+                inherited = next((x for x in recent if x and not _is_noise_item_name(x)), None)
+                if inherited:
+                    best_name = inherited
+                    source = "room_context_recent"
+
+        if best_name != "미분류 상품" and not _is_noise_item_name(best_name):
+            dq = room_recent_named_items[room]
+            if best_name in dq:
+                dq.remove(best_name)
+            dq.appendleft(best_name)
 
         resolved_item_name_by_event_id[ev.get("id")] = {"item_name": best_name, "source": source}
 

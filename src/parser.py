@@ -42,7 +42,7 @@ DELAY_KEYWORDS = [
 STATUS_NOISE_WORDS = [
     "긴급공지", "중요공지", "공지", "안내", "속보", "알림", "발주", "출고", "배송",
     "품절", "품절예정", "일시품절", "재입고", "판매재개", "가격변동", "가격인상", "가격인하",
-    "신규등록", "신규오픈", "신규상품", "입고완료", "적용시기", "특가", "지연", "일정", "요약",
+    "신규등록", "신규오픈", "신규상품", "입고완료", "적용시기", "특가", "지연", "일정", "요약", "품절안내", "긴급",
 ]
 
 OPTION_PATTERNS: Dict[str, str] = {
@@ -163,6 +163,7 @@ def _normalize_option_token(category: str, token: str) -> str:
         t = t.replace("리터", "L").replace("l", "L")
     elif category == "grade":
         t = t.replace("등급", "").replace("급", "")
+        t = t.upper() if t.lower() in {"a", "a+", "b", "c"} else t
         grade_map = {
             "특": "특", "특품": "특", "상": "상", "상품": "상", "중": "중", "하": "하",
             "A": "A", "A+": "A+", "B": "B", "C": "C", "프리미엄": "프리미엄", "로얄": "로얄",
@@ -198,7 +199,9 @@ def _normalize_item_name(name: str) -> str:
     n = name.strip()
     for src, dst in ITEM_ALIASES.items():
         n = re.sub(re.escape(src), dst, n, flags=re.IGNORECASE)
-    n = re.sub(r"\b(?:가격|즉시|대폭|인상|인하|변동|안내|공지|요청|예정|재개|판매)\b", " ", n)
+    n = re.sub(r"\b(?:가격|즉시|대폭|인상|인하|변동|안내|공지|요청|예정|재개|판매|옵션추가|신규옵션|추가)\b", " ", n)
+    n = re.sub(r"\b(?:특품|특|A\+?|B|C|상|중|하|프리미엄|로얄|선별|못난이|가정용)\s*급\b", " ", n, flags=re.IGNORECASE)
+    n = re.sub(r"\b품\b", " ", n)
     n = re.sub(r"\s+", " ", n).strip(" -:/")
     return n
 
@@ -344,7 +347,7 @@ def parse_message(text: str) -> Optional[ParsedEvent]:
     if mpp:
         p_name = _normalize_item_name(mpp.group(1).strip())
         p_price = int(mpp.group(2).replace(",", ""))
-        et = "NEW_ITEM" if ("신상품" in text or "신규" in text) else "NOTICE"
+        et = "NEW_ITEM" if ("신상품" in text or "신규" in text) else "PRICE_SEEN"
         return ParsedEvent(vendor, p_name, et, None, p_price, None, 0.95)
 
     if text.strip().startswith("#가격인상"):

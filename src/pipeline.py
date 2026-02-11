@@ -2,8 +2,13 @@ import hashlib
 from datetime import datetime
 from typing import Optional
 from .db import conn_ctx
-from .parser import parse_message
+from .parser import parse_message, ParsedEvent
 from .notifier import send_telegram
+
+
+ROOM_EVENT_CONTEXT = {}
+CONTEXT_TTL_SECONDS = 60 * 30
+CONTEXT_EVENT_TYPES = {"PRICE_UP", "PRICE_DOWN", "NEW_ITEM", "SOLD_OUT", "DELAY_NOTICE"}
 
 
 def _hash(room_name: str, line: str):
@@ -50,6 +55,52 @@ def _is_noise_line(line: str) -> bool:
     return False
 
 
+def _is_context_header(line: str) -> bool:
+    s = line.strip()
+    return (
+        s.startswith("#가격")
+        or "상품변동 요약" in s
+        or "팜허브신규변동알림" in s
+    )
+
+
+def _extract_context_product(line: str) -> Optional[str]:
+    line = line.strip()
+    if not line or line.startswith("#"):
+        return None
+
+    for quote in ["'", "‘", '"']:
+        if quote in line:
+            parts = line.split(quote)
+            if len(parts) >= 3:
+                candidate = parts[1].strip(" ’'\"")
+                if candidate and len(candidate) > 1:
+                    return candidate
+
+    if line.startswith("📌"):
+        candidate = line.replace("📌", "").replace("팜허브", "").strip(" -:")
+        if candidate and len(candidate) >= 2:
+            return candidate[:60]
+
+    return None
+
+
+def _get_context_event(room_name: str, created_at: str) -> Optional[str]:
+    ctx = ROOM_EVENT_CONTEXT.get(room_name)
+    if not ctx:
+        return None
+    try:
+        now = datetime.fromisoformat(created_at)
+        ts = datetime.fromisoformat(ctx["created_at"])
+        if (now - ts).total_seconds() > CONTEXT_TTL_SECONDS:
+            ROOM_EVENT_CONTEXT.pop(room_name, None)
+            return None
+    except Exception:
+        ROOM_EVENT_CONTEXT.pop(room_name, None)
+        return None
+    return ctx.get("event_type")
+
+
 def ingest_line(room_name: str, line: str, sender: str = "unknown", created_at: Optional[str] = None):
     created_at = created_at or datetime.now().isoformat(timespec="seconds")
     if _is_noise_line(line):
@@ -69,6 +120,26 @@ def ingest_line(room_name: str, line: str, sender: str = "unknown", created_at: 
 
         msg_id = conn.execute("SELECT id FROM messages WHERE hash=?", (h,)).fetchone()[0]
         parsed = parse_message(line)
+
+        if parsed and parsed.event_type in CONTEXT_EVENT_TYPES and _is_context_header(line) and not parsed.product_name:
+            ROOM_EVENT_CONTEXT[room_name] = {"event_type": parsed.event_type, "created_at": created_at}
+            return True
+
+        if not parsed:
+            ctx_event_type = _get_context_event(room_name, created_at)
+            if ctx_event_type:
+                product = _extract_context_product(line)
+                if product:
+                    parsed = ParsedEvent(
+                        vendor="팜허브" if "팜허브" in line else None,
+                        product_name=product,
+                        event_type=ctx_event_type,
+                        old_price=None,
+                        new_price=None,
+                        stock_status="SOLD_OUT" if ctx_event_type == "SOLD_OUT" else None,
+                        confidence=0.70,
+                    )
+
         if not parsed:
             return True
 

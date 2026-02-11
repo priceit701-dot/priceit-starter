@@ -7,11 +7,36 @@ from typing import Optional
 PRICE_RE = re.compile(r"(?P<price>[0-9]{1,3}(?:,[0-9]{3})+|[0-9]{4,})\s*원")
 PRODUCT_PRICE_RE = re.compile(r"[✔🍅\-\s]*([^;\n]+?)\s*;\s*([0-9][0-9,]*)\s*원")
 VENDOR_RE = re.compile(r"\[(?P<vendor>[^\]]+)\]")
+QUOTED_PRODUCT_RE = re.compile(r"[‘'\"]\s*([^'‘’\"\n]+?)\s*[’'\"]")
 
 UP_KEYWORDS = ["인상", "올랐", "상승", "⬆️", "🔺", "가격인상"]
 DOWN_KEYWORDS = ["인하", "내렸", "떨", "할인", "⬇️", "🔻", "가격인하", "특가"]
-SOLD_OUT_KEYWORDS = ["품절", "sold out", "솔드아웃", "일시품절", "품절요청"]
+SOLD_OUT_KEYWORDS = ["품절", "sold out", "솔드아웃", "일시품절", "품절요청", "품절예정"]
 RESTOCK_KEYWORDS = ["재입고", "입고", "복구", "판매재개", "재개"]
+
+HEADER_ONLY_PATTERNS = [
+    "상품변동 요약",
+    "출고 일정 안내",
+    "배송안내",
+    "발주마감시간 변경",
+    "중요공지",
+    "발주가이드",
+]
+
+DELAY_KEYWORDS = [
+    "출고 지연",
+    "배송 지연",
+    "원물 부족",
+    "미출",
+    "입고 지연",
+    "연휴",
+    "순차출고",
+    "출고일정",
+    "출고 일정",
+    "송장 미등록",
+    "지연안내",
+    "지연 안내",
+]
 
 
 def _load_vendor_aliases():
@@ -58,15 +83,52 @@ def _parse_vendor(text: str):
         keys = [canonical] + aliases
         if any(k.lower() in low_text for k in keys):
             return canonical
+
+    if "팜허브" in text:
+        return "팜허브"
+    return None
+
+
+def _is_header_like(text: str) -> bool:
+    t = text.strip()
+    if not t:
+        return True
+    if t.startswith("#") and "'" not in t and "‘" not in t and '"' not in t:
+        return True
+    return any(p in t for p in HEADER_ONLY_PATTERNS)
+
+
+def _extract_quoted_product(text: str) -> Optional[str]:
+    m = QUOTED_PRODUCT_RE.search(text)
+    if m:
+        product = m.group(1).strip()
+        if product and len(product) > 1:
+            return product
     return None
 
 
 def _parse_product(text: str):
+    quoted = _extract_quoted_product(text)
+    if quoted:
+        return quoted
+
+    if _is_header_like(text):
+        return None
+
+    bracket = re.search(r"\[([^\]]+)\]", text)
+    if bracket:
+        b = bracket.group(1).strip()
+        b = re.sub(r"(안내|공지|예정|요약)$", "", b).strip(" :-")
+        if b and len(b) > 1 and b not in {"가격인상", "가격인하", "가격변동"}:
+            return b
+
     cleaned = re.sub(r"\[[^\]]+\]", "", text)
     cleaned = re.sub(r"https?://\S+", "", cleaned)
-    cleaned = re.sub(r"\s+", " ", cleaned).strip()
-    # first 50 chars as MVP product hint
-    return cleaned[:50] if cleaned else None
+    cleaned = re.sub(r"^[#📌🔔⭐🚨\s]+", "", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip(" -:")
+    if not cleaned or _is_header_like(cleaned):
+        return None
+    return cleaned[:60]
 
 
 def parse_message(text: str) -> Optional[ParsedEvent]:
@@ -82,7 +144,7 @@ def parse_message(text: str) -> Optional[ParsedEvent]:
         return None
 
     # Delay / logistics notices
-    if any(k in text for k in ["출고 지연", "배송 지연", "원물 부족", "미출", "입고 지연", "연휴"]):
+    if any(k in text for k in DELAY_KEYWORDS):
         return ParsedEvent(vendor, product_name, "DELAY_NOTICE", None, None, None, 0.93)
 
     # Explicit sold-out / risk
@@ -96,10 +158,10 @@ def parse_message(text: str) -> Optional[ParsedEvent]:
         return ParsedEvent(vendor, product_name, "RESTOCK", None, None, "IN_STOCK", 0.90)
 
     # 신규상품/신규등록
-    if any(k in text for k in ["신규상품", "신규등록", "전격 오픈", "new"]):
+    if any(k in text for k in ["신규상품", "신규등록", "신규오픈", "신규옵션", "전격 오픈", "new"]):
         if len(prices) == 1:
-            return ParsedEvent(vendor, product_name, "NEW_ITEM", None, prices[0], None, 0.88)
-        return ParsedEvent(vendor, product_name, "NEW_ITEM", None, None, None, 0.75)
+            return ParsedEvent(vendor, product_name, "NEW_ITEM", None, prices[0], None, 0.90)
+        return ParsedEvent(vendor, product_name, "NEW_ITEM", None, None, None, 0.82)
 
     # Structured product line: "상품명 ; 11,700원"
     mpp = PRODUCT_PRICE_RE.search(text)
@@ -108,6 +170,17 @@ def parse_message(text: str) -> Optional[ParsedEvent]:
         p_price = int(mpp.group(2).replace(",", ""))
         et = "NEW_ITEM" if ("신상품" in text or "신규" in text) else "PRICE_SEEN"
         return ParsedEvent(vendor, p_name, et, None, p_price, None, 0.95)
+
+    # 팜허브 공지 헤더형 키워드
+    if text.strip().startswith("#가격인상"):
+        return ParsedEvent(vendor, product_name, "PRICE_UP", None, prices[0] if prices else None, None, 0.88)
+    if text.strip().startswith("#가격인하"):
+        return ParsedEvent(vendor, product_name, "PRICE_DOWN", None, prices[0] if prices else None, None, 0.88)
+    if text.strip().startswith("#가격변동"):
+        if any(k in text for k in ["인상", "⬆️", "🔺"]):
+            return ParsedEvent(vendor, product_name, "PRICE_UP", None, prices[0] if prices else None, None, 0.84)
+        if any(k in text for k in ["인하", "⬇️", "🔻", "특가"]):
+            return ParsedEvent(vendor, product_name, "PRICE_DOWN", None, prices[0] if prices else None, None, 0.84)
 
     # 가격 변동 헤더
     if "가격변동" in text or "단가반영" in text or "적용시기" in text:
@@ -123,12 +196,14 @@ def parse_message(text: str) -> Optional[ParsedEvent]:
             return ParsedEvent(vendor, product_name, "PRICE_UP", prices[-2], prices[-1], None, 0.88)
         if len(prices) == 1:
             return ParsedEvent(vendor, product_name, "PRICE_UP", None, prices[0], None, 0.72)
+        return ParsedEvent(vendor, product_name, "PRICE_UP", None, None, None, 0.72)
 
     if any(k in text for k in DOWN_KEYWORDS):
         if len(prices) >= 2:
             return ParsedEvent(vendor, product_name, "PRICE_DOWN", prices[-2], prices[-1], None, 0.88)
         if len(prices) == 1:
             return ParsedEvent(vendor, product_name, "PRICE_DOWN", None, prices[0], None, 0.72)
+        return ParsedEvent(vendor, product_name, "PRICE_DOWN", None, None, None, 0.72)
 
     # Generic notice
     if "공지" in text or "안내" in text or "알림" in text or "일일공지" in text:

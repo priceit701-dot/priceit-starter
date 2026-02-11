@@ -27,6 +27,9 @@ from .config import (
     ROOMS_PER_CYCLE,
     ROOM_SWITCH_DELAY_SEC,
     COLLECT_ONLY_WHEN_IDLE_SEC,
+    ROOM_LIST_X,
+    ROOM_LIST_Y_START,
+    ROOM_LIST_Y_STEP,
 )
 from .db import init_db
 from .pipeline import ingest_line
@@ -46,6 +49,10 @@ _UI_NOISE_TOKENS = [
     "box-sizing",
     "counter-reset",
 ]
+
+CURRENT_ROOM_LIST_X = ROOM_LIST_X
+CURRENT_ROOM_LIST_Y_START = ROOM_LIST_Y_START
+CURRENT_ROOM_LIST_Y_STEP = ROOM_LIST_Y_STEP
 
 
 class FocusError(RuntimeError):
@@ -130,19 +137,54 @@ def _copy_chat_text() -> str:
         _pbcopy(original_clipboard)
 
 
-def _focus_chat_list():
-    # KakaoTalk 채팅 탭/리스트 포커스 복구 시도 (best-effort)
-    _run_applescript('tell application "System Events" to keystroke "2" using {command down}')
+def _click(x: int, y: int):
+    _run_applescript(f'tell application "System Events" to click at {{{x}, {y}}}')
+
+
+def _select_room_by_index(i: int):
+    y = CURRENT_ROOM_LIST_Y_START + (i * CURRENT_ROOM_LIST_Y_STEP)
+    _click(CURRENT_ROOM_LIST_X, y)
     time.sleep(0.10)
-    _key(53)  # esc
-    time.sleep(0.05)
 
 
-def _move_next_room():
-    _focus_chat_list()
-    _key(125)  # down arrow
-    time.sleep(0.08)
-    _key(36)  # enter
+def _auto_calibrate_room_list():
+    global CURRENT_ROOM_LIST_X, CURRENT_ROOM_LIST_Y_START, CURRENT_ROOM_LIST_Y_STEP
+    x_candidates = [ROOM_LIST_X - 40, ROOM_LIST_X, ROOM_LIST_X + 40, 180, 220, 260]
+    y_candidates = [ROOM_LIST_Y_START - 80, ROOM_LIST_Y_START, ROOM_LIST_Y_START + 80, 280, 340]
+    step_candidates = [ROOM_LIST_Y_STEP - 12, ROOM_LIST_Y_STEP, ROOM_LIST_Y_STEP + 12, 72, 86]
+
+    best = None
+    best_score = -1
+    for x in x_candidates:
+        if x < 80:
+            continue
+        for y0 in y_candidates:
+            if y0 < 160:
+                continue
+            for step in step_candidates:
+                if step < 48:
+                    continue
+                sigs = set()
+                noise = 0
+                for i in range(3):
+                    _click(int(x), int(y0 + i * step))
+                    time.sleep(0.10)
+                    txt = _copy_chat_text()
+                    if _looks_like_noise_dump(txt):
+                        noise += 1
+                        continue
+                    sigs.add(_text_sig(txt))
+                score = (len(sigs) * 10) - (noise * 5)
+                if score > best_score:
+                    best_score = score
+                    best = (int(x), int(y0), int(step))
+
+    if best:
+        CURRENT_ROOM_LIST_X, CURRENT_ROOM_LIST_Y_START, CURRENT_ROOM_LIST_Y_STEP = best
+        print(
+            f"collector calibrate | x={CURRENT_ROOM_LIST_X} y0={CURRENT_ROOM_LIST_Y_START} step={CURRENT_ROOM_LIST_Y_STEP} score={best_score}",
+            flush=True,
+        )
 
 
 def _looks_like_noise_dump(text: str) -> bool:
@@ -192,9 +234,9 @@ def _ingest_text(room_name: str, text: str) -> int:
 
 
 def collect_cycle(base_room_name: str, rooms_per_cycle: int, last_sig_by_room: dict) -> int:
-    prev_app = _frontmost_app_name()
     _activate_kakao()
     _assert_kakao_focus()
+    _auto_calibrate_room_list()
 
     total_added = 0
     scanned = 0
@@ -204,22 +246,17 @@ def collect_cycle(base_room_name: str, rooms_per_cycle: int, last_sig_by_room: d
     prev_sig = None
 
     try:
-        # 첫 방에서 시작
-        _focus_chat_list()
-        _key(36)
-        time.sleep(ROOM_SWITCH_DELAY_SEC)
-
         for i in range(rooms_per_cycle):
             scanned += 1
             room_name = f"{base_room_name}_{i+1:02d}"
 
             _assert_kakao_focus()
+            _select_room_by_index(i)
+            time.sleep(ROOM_SWITCH_DELAY_SEC)
             text = _copy_chat_text()
 
             if _looks_like_noise_dump(text):
                 skipped_noise += 1
-                _move_next_room()
-                time.sleep(ROOM_SWITCH_DELAY_SEC)
                 continue
 
             sig = _text_sig(text)
@@ -239,13 +276,8 @@ def collect_cycle(base_room_name: str, rooms_per_cycle: int, last_sig_by_room: d
             # 핵심: 시그니처 동일여부와 무관하게 항상 ingest 시도(중복은 DB hash가 차단)
             last_sig_by_room[room_name] = sig
             total_added += _ingest_text(room_name, text)
-
-            _move_next_room()
-            time.sleep(ROOM_SWITCH_DELAY_SEC)
     finally:
-        # 사용자 작업 앱으로 복귀 시도
-        if prev_app and prev_app != "KakaoTalk":
-            _activate_app(prev_app)
+        pass
 
     print(
         f"cycle stats | scanned={scanned} added={total_added} skipped_same={skipped_same} skipped_noise={skipped_noise}",
@@ -278,7 +310,6 @@ def main():
             # 다음 사이클 전에 포커스 복구 시도
             try:
                 _activate_kakao()
-                _focus_chat_list()
             except Exception:
                 pass
         except KeyboardInterrupt:

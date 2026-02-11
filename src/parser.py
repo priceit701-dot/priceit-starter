@@ -186,12 +186,20 @@ def _extract_option_tokens(text: str) -> List[str]:
         for m in re.finditer(pattern, text, flags=re.IGNORECASE):
             token = _normalize_option_token(category, m.group(0))
             found.append((idx, token))
+
+    # category-level dedupe: keep multi-weight, but keep first token for other categories
     seen = set()
+    seen_category = set()
     out: List[str] = []
     for _, t in sorted(found, key=lambda x: x[0]):
-        if t not in seen:
-            seen.add(t)
-            out.append(t)
+        if t in seen:
+            continue
+        category = t.split(":", 1)[0]
+        if category != "weight" and category in seen_category:
+            continue
+        seen.add(t)
+        seen_category.add(category)
+        out.append(t)
     return out
 
 

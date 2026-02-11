@@ -1,0 +1,264 @@
+{
+  "executed_at": "2026-02-12T06:04:11.793203",
+  "db_path": "/Users/sanghun/.openclaw/workspace/priceit-starter/data/priceit.db",
+  "steps": [
+    {
+      "step": "backup",
+      "status": "ok",
+      "backup_path": "/Users/sanghun/.openclaw/workspace/priceit-starter/data/priceit.db.backup_20260212_060411",
+      "size_bytes": 15659008
+    },
+    {
+      "step": "phase1_apply",
+      "status": "ok",
+      "validation": {
+        "created_tables": [
+          "event_type_map",
+          "product_aliases_db",
+          "room_aliases",
+          "vendor_aliases_db"
+        ],
+        "view_v_events_alarm_exists": true,
+        "room_aliases_rows": 83,
+        "vendor_aliases_db_rows": 222,
+        "product_aliases_db_rows": 1190,
+        "event_type_map_rows": 9
+      }
+    },
+    {
+      "step": "phase2_apply",
+      "status": "ok",
+      "decision": {
+        "criterion": "events rows <= 50,000 considered low operational risk for one-time backfill",
+        "events_rows": 1840,
+        "apply_phase2": true
+      },
+      "events_v2_rows": 1840
+    }
+  ],
+  "status": "ok",
+  "pre": {
+    "label": "pre",
+    "messages_rows": 37694,
+    "events_rows": 1840,
+    "products_rows": 1115,
+    "events_type_dist_raw": [
+      {
+        "event_type": "RESTOCK",
+        "count": 629
+      },
+      {
+        "event_type": "PRICE_DOWN",
+        "count": 366
+      },
+      {
+        "event_type": "NOTICE",
+        "count": 351
+      },
+      {
+        "event_type": "SOLD_OUT",
+        "count": 234
+      },
+      {
+        "event_type": "NEW_ITEM",
+        "count": 112
+      },
+      {
+        "event_type": "DELAY_NOTICE",
+        "count": 101
+      },
+      {
+        "event_type": "PRICE_UP",
+        "count": 40
+      },
+      {
+        "event_type": "PRICE_SEEN",
+        "count": 5
+      },
+      {
+        "event_type": "SOLD_OUT_RISK",
+        "count": 2
+      }
+    ],
+    "events_vendor_null_or_blank": 1167,
+    "events_product_null_or_blank": 160,
+    "events_vendor_ts_like": 327,
+    "events_product_ts_like": 327,
+    "events_room_null_or_blank": 0,
+    "has_room_aliases": false,
+    "has_vendor_aliases_db": false,
+    "has_product_aliases_db": false,
+    "has_event_type_map": false,
+    "has_events_v2": false,
+    "has_v_events_alarm": false
+  },
+  "alarm_report": {
+    "source": "events_v2",
+    "ordered_counts": [
+      {
+        "event_type": "PRICE_UP",
+        "count": 40
+      },
+      {
+        "event_type": "PRICE_DOWN",
+        "count": 366
+      },
+      {
+        "event_type": "SOLD_OUT",
+        "count": 236
+      },
+      {
+        "event_type": "RESTOCK",
+        "count": 629
+      },
+      {
+        "event_type": "DELAY_NOTICE",
+        "count": 101
+      },
+      {
+        "event_type": "NEW_ITEM",
+        "count": 112
+      },
+      {
+        "event_type": "NOTICE",
+        "count": 356
+      }
+    ]
+  },
+  "post": {
+    "label": "post",
+    "messages_rows": 37694,
+    "events_rows": 1840,
+    "products_rows": 1115,
+    "events_type_dist_raw": [
+      {
+        "event_type": "RESTOCK",
+        "count": 629
+      },
+      {
+        "event_type": "PRICE_DOWN",
+        "count": 366
+      },
+      {
+        "event_type": "NOTICE",
+        "count": 351
+      },
+      {
+        "event_type": "SOLD_OUT",
+        "count": 234
+      },
+      {
+        "event_type": "NEW_ITEM",
+        "count": 112
+      },
+      {
+        "event_type": "DELAY_NOTICE",
+        "count": 101
+      },
+      {
+        "event_type": "PRICE_UP",
+        "count": 40
+      },
+      {
+        "event_type": "PRICE_SEEN",
+        "count": 5
+      },
+      {
+        "event_type": "SOLD_OUT_RISK",
+        "count": 2
+      }
+    ],
+    "events_vendor_null_or_blank": 1167,
+    "events_product_null_or_blank": 160,
+    "events_vendor_ts_like": 327,
+    "events_product_ts_like": 327,
+    "events_room_null_or_blank": 0,
+    "has_room_aliases": true,
+    "has_vendor_aliases_db": true,
+    "has_product_aliases_db": true,
+    "has_event_type_map": true,
+    "has_events_v2": true,
+    "has_v_events_alarm": true,
+    "v_events_alarm_type_dist": [
+      {
+        "event_type": "RESTOCK",
+        "count": 629
+      },
+      {
+        "event_type": "PRICE_DOWN",
+        "count": 366
+      },
+      {
+        "event_type": "NOTICE",
+        "count": 356
+      },
+      {
+        "event_type": "SOLD_OUT",
+        "count": 236
+      },
+      {
+        "event_type": "NEW_ITEM",
+        "count": 112
+      },
+      {
+        "event_type": "DELAY_NOTICE",
+        "count": 101
+      },
+      {
+        "event_type": "PRICE_UP",
+        "count": 40
+      }
+    ],
+    "v_events_alarm_vendor_std_null": 1494,
+    "v_events_alarm_product_std_null": 487,
+    "events_v2_rows": 1840,
+    "events_v2_type_dist": [
+      {
+        "event_type": "RESTOCK",
+        "count": 629
+      },
+      {
+        "event_type": "PRICE_DOWN",
+        "count": 366
+      },
+      {
+        "event_type": "NOTICE",
+        "count": 356
+      },
+      {
+        "event_type": "SOLD_OUT",
+        "count": 236
+      },
+      {
+        "event_type": "NEW_ITEM",
+        "count": 112
+      },
+      {
+        "event_type": "DELAY_NOTICE",
+        "count": 101
+      },
+      {
+        "event_type": "PRICE_UP",
+        "count": 40
+      }
+    ],
+    "events_v2_vendor_std_null": 1494,
+    "events_v2_product_std_null": 487
+  },
+  "delta": {
+    "vendor_ts_like_pre_raw": 327,
+    "vendor_ts_like_post_v2": 0,
+    "vendor_ts_like_reduction": 327,
+    "product_ts_like_pre_raw": 327,
+    "product_ts_like_post_v2": 0,
+    "product_ts_like_reduction": 327,
+    "non_standard_event_type_pre_raw": 7,
+    "non_standard_event_type_post_v2": 0,
+    "non_standard_event_type_reduction": 7
+  },
+  "rollback_guide": {
+    "backup_file": "/Users/sanghun/.openclaw/workspace/priceit-starter/data/priceit.db.backup_20260212_060411",
+    "restore_command": "cp '/Users/sanghun/.openclaw/workspace/priceit-starter/data/priceit.db.backup_20260212_060411' '/Users/sanghun/.openclaw/workspace/priceit-starter/data/priceit.db'",
+    "sql_rollback_file": "/Users/sanghun/.openclaw/workspace/priceit-starter/sql/20260212_db_cleanup_rollback.sql"
+  }
+}

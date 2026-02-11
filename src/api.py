@@ -46,6 +46,25 @@ PRODUCT_KEYWORDS = [
 ]
 
 
+def _load_seller_product_keywords() -> list[str]:
+    catalog_path = Path(__file__).resolve().parent.parent / "data" / "seller_product_catalog_20260212.json"
+    if not catalog_path.exists():
+        return []
+    try:
+        import json
+
+        payload = json.loads(catalog_path.read_text(encoding="utf-8"))
+        kws = payload.get("keywords") or []
+        return [str(k).strip() for k in kws if str(k).strip()]
+    except Exception:
+        return []
+
+
+_PRODUCT_KEYWORDS_SELLER = _load_seller_product_keywords()
+if _PRODUCT_KEYWORDS_SELLER:
+    PRODUCT_KEYWORDS = sorted(set(PRODUCT_KEYWORDS + _PRODUCT_KEYWORDS_SELLER), key=lambda x: (-len(x), x))
+
+
 def _is_noise_item_name(value: Optional[str]) -> bool:
     s = _clean_text(value)
     if not s:

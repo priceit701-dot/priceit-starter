@@ -1,0 +1,7 @@
+{
+  "runbook_path": "/Users/sanghun/.openclaw/workspace/priceit-starter/docs/kakao-openchat-export-runbook.md",
+  "cycle_sec": 5,
+  "executor_command": "",
+  "require_next_step_token": "NEXT_STEP_OK",
+  "require_evidence_token": "EVIDENCE:"
+}

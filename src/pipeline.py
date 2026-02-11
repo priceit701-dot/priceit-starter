@@ -11,8 +11,13 @@ CONTEXT_TTL_SECONDS = 60 * 30
 CONTEXT_EVENT_TYPES = {"PRICE_UP", "PRICE_DOWN", "NEW_ITEM", "SOLD_OUT", "DELAY_NOTICE"}
 
 
-def _hash(room_name: str, line: str):
-    return hashlib.sha1(f"{room_name}|{line}".encode("utf-8")).hexdigest()
+def _hash(room_name: str, sender: str, line: str, created_at: str):
+    # created_at 포함으로 날짜가 다른 동일 공지까지 영구 중복처리되는 문제 방지
+    return hashlib.sha1(f"{room_name}|{sender}|{created_at}|{line}".encode("utf-8")).hexdigest()
+
+
+def _line_hash(room_name: str, line: str):
+    return hashlib.sha1(f"{room_name}|{line.strip()}".encode("utf-8")).hexdigest()
 
 
 def _is_noise_line(line: str) -> bool:
@@ -101,13 +106,40 @@ def _get_context_event(room_name: str, created_at: str) -> Optional[str]:
     return ctx.get("event_type")
 
 
+def _audit_skip(conn, room_name: str, created_at: str, line: str, reason: str):
+    conn.execute(
+        """
+        INSERT INTO ingestion_audit(room_name, created_at, line_hash, reason, raw_line)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (room_name, created_at, _line_hash(room_name, line), reason, line[:500]),
+    )
+
+
 def ingest_line(room_name: str, line: str, sender: str = "unknown", created_at: Optional[str] = None):
     created_at = created_at or datetime.now().isoformat(timespec="seconds")
-    if _is_noise_line(line):
-        return False
-    h = _hash(room_name, line)
 
     with conn_ctx() as conn:
+        if _is_noise_line(line):
+            _audit_skip(conn, room_name, created_at, line, "noise")
+            return False
+
+        # 최근 10분내 동일 방/동일 라인 중복 방지 (복붙 루프/스크롤 반복 대응)
+        dup = conn.execute(
+            """
+            SELECT 1 FROM messages
+            WHERE room_name = ?
+              AND message_text = ?
+              AND datetime(created_at) >= datetime(?, '-10 minutes')
+            LIMIT 1
+            """,
+            (room_name, line, created_at),
+        ).fetchone()
+        if dup:
+            _audit_skip(conn, room_name, created_at, line, "duplicate_window_10m")
+            return False
+
+        h = _hash(room_name, sender, line, created_at)
         cur = conn.execute(
             """
             INSERT OR IGNORE INTO messages(room_name, sender, message_text, raw_line, created_at, hash)
@@ -116,6 +148,7 @@ def ingest_line(room_name: str, line: str, sender: str = "unknown", created_at: 
             (room_name, sender, line, line, created_at, h),
         )
         if cur.rowcount == 0:
+            _audit_skip(conn, room_name, created_at, line, "duplicate_hash")
             return False
 
         msg_id = conn.execute("SELECT id FROM messages WHERE hash=?", (h,)).fetchone()[0]

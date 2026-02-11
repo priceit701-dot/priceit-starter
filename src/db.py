@@ -15,6 +15,15 @@ CREATE TABLE IF NOT EXISTS messages (
   hash TEXT UNIQUE
 );
 
+CREATE TABLE IF NOT EXISTS ingestion_audit (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  room_name TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  line_hash TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  raw_line TEXT
+);
+
 CREATE TABLE IF NOT EXISTS products (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   vendor TEXT NOT NULL,
@@ -41,7 +50,9 @@ CREATE TABLE IF NOT EXISTS events (
 );
 
 CREATE INDEX IF NOT EXISTS idx_messages_room_time ON messages(room_name, created_at);
+CREATE INDEX IF NOT EXISTS idx_messages_room_line_time ON messages(room_name, message_text, created_at);
 CREATE INDEX IF NOT EXISTS idx_events_type_time ON events(event_type, created_at);
+CREATE INDEX IF NOT EXISTS idx_ingestion_audit_time ON ingestion_audit(created_at);
 """
 
 

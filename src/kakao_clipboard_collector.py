@@ -130,7 +130,16 @@ def _copy_chat_text() -> str:
         _pbcopy(original_clipboard)
 
 
+def _focus_chat_list():
+    # KakaoTalk 채팅 탭/리스트 포커스 복구 시도 (best-effort)
+    _run_applescript('tell application "System Events" to keystroke "2" using {command down}')
+    time.sleep(0.10)
+    _key(53)  # esc
+    time.sleep(0.05)
+
+
 def _move_next_room():
+    _focus_chat_list()
     _key(125)  # down arrow
     time.sleep(0.08)
     _key(36)  # enter
@@ -196,6 +205,7 @@ def collect_cycle(base_room_name: str, rooms_per_cycle: int, last_sig_by_room: d
 
     try:
         # 첫 방에서 시작
+        _focus_chat_list()
         _key(36)
         time.sleep(ROOM_SWITCH_DELAY_SEC)
 
@@ -265,6 +275,12 @@ def main():
                 print(f"[{datetime.now().strftime('%H:%M:%S')}] cycle done +{added}", flush=True)
         except FocusError as e:
             print(f"collector focus warning: {e}", flush=True)
+            # 다음 사이클 전에 포커스 복구 시도
+            try:
+                _activate_kakao()
+                _focus_chat_list()
+            except Exception:
+                pass
         except KeyboardInterrupt:
             print("stopped", flush=True)
             break

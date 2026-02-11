@@ -1,0 +1,157 @@
+{
+  "db_path": "data/priceit.db",
+  "metrics": {
+    "messages_rows": 37694,
+    "events_rows": 1840,
+    "products_rows": 1115,
+    "ingestion_audit_rows": 0,
+    "messages_hash_null": 0,
+    "messages_sender_null": 0,
+    "messages_raw_line_null": 0,
+    "messages_created_at_invalid": 0,
+    "events_created_at_invalid": 0,
+    "ingestion_created_at_invalid": 0,
+    "messages_dup_group_room_sender_text_time": 0,
+    "messages_dup_rows_room_sender_text_time": 0,
+    "events_dup_group_message_type_vendor_product": 0,
+    "events_dup_rows_message_type_vendor_product": 0,
+    "room_distinct": 83,
+    "room_norm_distinct": 83,
+    "room_potential_variant_groups": 0,
+    "events_vendor_null": 1167,
+    "events_product_null": 160,
+    "products_canonical_key_null": 0,
+    "events_vendor_iso_like": 327,
+    "events_product_iso_like": 327,
+    "event_type_distinct": 9,
+    "event_type_out_of_scope": 2,
+    "event_type_not_upper_rows": 0,
+    "bench_room_messages": 327,
+    "bench_room_events": 327
+  },
+  "top_event_types": [
+    {
+      "event_type": "RESTOCK",
+      "count": 629
+    },
+    {
+      "event_type": "PRICE_DOWN",
+      "count": 366
+    },
+    {
+      "event_type": "NOTICE",
+      "count": 351
+    },
+    {
+      "event_type": "SOLD_OUT",
+      "count": 234
+    },
+    {
+      "event_type": "NEW_ITEM",
+      "count": 112
+    },
+    {
+      "event_type": "DELAY_NOTICE",
+      "count": 101
+    },
+    {
+      "event_type": "PRICE_UP",
+      "count": 40
+    },
+    {
+      "event_type": "PRICE_SEEN",
+      "count": 5
+    },
+    {
+      "event_type": "SOLD_OUT_RISK",
+      "count": 2
+    }
+  ],
+  "out_of_scope_event_types": [
+    "PRICE_SEEN",
+    "SOLD_OUT_RISK"
+  ],
+  "room_variant_groups": [],
+  "iso_like_samples": [
+    {
+      "event_id": 1671,
+      "message_id": 885463,
+      "event_type": "PRICE_DOWN",
+      "vendor": "2026-02-12T00:07:58",
+      "product_name": "2026-02-12T00:07:58",
+      "created_at": "2026-02-12T00:07:58"
+    },
+    {
+      "event_id": 1672,
+      "message_id": 885464,
+      "event_type": "PRICE_DOWN",
+      "vendor": "2026-02-12T00:07:58",
+      "product_name": "2026-02-12T00:07:58",
+      "created_at": "2026-02-12T00:07:58"
+    },
+    {
+      "event_id": 1673,
+      "message_id": 885465,
+      "event_type": "PRICE_DOWN",
+      "vendor": "2026-02-12T00:07:58",
+      "product_name": "2026-02-12T00:07:58",
+      "created_at": "2026-02-12T00:07:58"
+    },
+    {
+      "event_id": 1674,
+      "message_id": 885466,
+      "event_type": "PRICE_DOWN",
+      "vendor": "2026-02-12T00:07:58",
+      "product_name": "2026-02-12T00:07:58",
+      "created_at": "2026-02-12T00:07:58"
+    },
+    {
+      "event_id": 1675,
+      "message_id": 885467,
+      "event_type": "PRICE_DOWN",
+      "vendor": "2026-02-12T00:07:58",
+      "product_name": "2026-02-12T00:07:58",
+      "created_at": "2026-02-12T00:07:58"
+    },
+    {
+      "event_id": 1676,
+      "message_id": 885468,
+      "event_type": "PRICE_DOWN",
+      "vendor": "2026-02-12T00:07:58",
+      "product_name": "2026-02-12T00:07:58",
+      "created_at": "2026-02-12T00:07:58"
+    },
+    {
+      "event_id": 1677,
+      "message_id": 885469,
+      "event_type": "PRICE_DOWN",
+      "vendor": "2026-02-12T00:07:58",
+      "product_name": "2026-02-12T00:07:58",
+      "created_at": "2026-02-12T00:07:58"
+    },
+    {
+      "event_id": 1678,
+      "message_id": 885470,
+      "event_type": "PRICE_DOWN",
+      "vendor": "2026-02-12T00:07:58",
+      "product_name": "2026-02-12T00:07:58",
+      "created_at": "2026-02-12T00:07:58"
+    },
+    {
+      "event_id": 1679,
+      "message_id": 885471,
+      "event_type": "PRICE_DOWN",
+      "vendor": "2026-02-12T00:07:58",
+      "product_name": "2026-02-12T00:07:58",
+      "created_at": "2026-02-12T00:07:58"
+    },
+    {
+      "event_id": 1680,
+      "message_id": 885472,
+      "event_type": "PRICE_DOWN",
+      "vendor": "2026-02-12T00:07:58",
+      "product_name": "2026-02-12T00:07:58",
+      "created_at": "2026-02-12T00:07:58"
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 import hashlib
 from datetime import datetime
+from typing import Optional
 from .db import conn_ctx
 from .parser import parse_message
 from .notifier import send_telegram
@@ -9,7 +10,7 @@ def _hash(room_name: str, line: str):
     return hashlib.sha1(f"{room_name}|{line}".encode("utf-8")).hexdigest()
 
 
-def ingest_line(room_name: str, line: str, sender: str = "unknown", created_at: str | None = None):
+def ingest_line(room_name: str, line: str, sender: str = "unknown", created_at: Optional[str] = None):
     created_at = created_at or datetime.now().isoformat(timespec="seconds")
     h = _hash(room_name, line)
 

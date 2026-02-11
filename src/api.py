@@ -1,3 +1,4 @@
+from typing import Optional
 from fastapi import FastAPI
 from pydantic import BaseModel
 from .db import init_db
@@ -10,7 +11,7 @@ class IngestBody(BaseModel):
     room_name: str
     message_text: str
     sender: str = "unknown"
-    created_at: str | None = None
+    created_at: Optional[str] = None
 
 
 @app.on_event("startup")

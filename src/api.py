@@ -77,6 +77,58 @@ def stats_timeline(limit_hours: int = 48):
     return {"timeline": timeline}
 
 
+@app.get("/stats/quality")
+def stats_quality(limit_hours: int = 24):
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute(
+        """
+        select event_type, count(*) c, round(avg(confidence), 3) avg_conf
+        from events
+        where datetime(created_at) >= datetime('now', ?)
+        group by event_type
+        order by c desc
+        """,
+        (f"-{limit_hours} hours",),
+    )
+    by_type = [
+        {"event_type": t, "count": c, "avg_confidence": avg_conf}
+        for t, c, avg_conf in cur.fetchall()
+    ]
+    cur.execute(
+        """
+        select reason, count(*) c
+        from ingestion_audit
+        where datetime(created_at) >= datetime('now', ?)
+        group by reason
+        order by c desc
+        """,
+        (f"-{limit_hours} hours",),
+    )
+    skips = [{"reason": r, "count": c} for r, c in cur.fetchall()]
+    conn.close()
+    return {"hours": limit_hours, "event_quality": by_type, "skip_reasons": skips}
+
+
+@app.get("/events/recent")
+def events_recent(limit: int = 30):
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    cur.execute(
+        """
+        select id, room_name, vendor, product_name, event_type, old_price, new_price, confidence, created_at
+        from events
+        order by id desc
+        limit ?
+        """,
+        (min(max(limit, 1), 200),),
+    )
+    rows = [dict(r) for r in cur.fetchall()]
+    conn.close()
+    return {"items": rows}
+
+
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard():
     html_path = Path(__file__).resolve().parent.parent / "web" / "dashboard.html"

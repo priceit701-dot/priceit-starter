@@ -12,10 +12,12 @@
     table{width:100%; border-collapse:collapse; margin-top:10px}
     th,td{border-bottom:1px solid #2a3040; padding:6px; text-align:left; font-size:13px}
     .muted{color:#9aa5b1; font-size:12px}
+    .pill{display:inline-block;padding:2px 8px;border:1px solid #2a3040;border-radius:999px;font-size:12px;color:#a9b6c6}
+    .danger{color:#ff7f7f}
   </style>
 </head>
 <body>
-  <h1>OpenChat 수집 대시보드</h1>
+  <h1>OpenChat 운영 대시보드 <span class="pill">MVP v3</span></h1>
   <div class="row">
     <div class="card"><div>메시지</div><h2 id="msg">-</h2></div>
     <div class="card"><div>이벤트</div><h2 id="ev">-</h2></div>
@@ -33,21 +35,48 @@
     </div>
   </div>
 
+  <div class="row" style="margin-top:12px">
+    <div class="card" style="flex:1; min-width:340px">
+      <h3>스킵 사유(24h)</h3>
+      <table id="skips"></table>
+    </div>
+    <div class="card" style="flex:2; min-width:440px">
+      <h3>최근 이벤트</h3>
+      <table id="recent"></table>
+    </div>
+  </div>
+
   <p class="muted" id="updated"></p>
 
 <script>
 async function load(){
-  const s = await fetch('/stats/summary').then(r=>r.json())
+  const [s, q, e] = await Promise.all([
+    fetch('/stats/summary').then(r=>r.json()),
+    fetch('/stats/quality?limit_hours=24').then(r=>r.json()),
+    fetch('/events/recent?limit=20').then(r=>r.json())
+  ])
+
   document.getElementById('msg').textContent = s.messages
   document.getElementById('ev').textContent = s.events
   document.getElementById('last').textContent = s.last_message_at || '-'
-  const t = document.getElementById('types')
-  t.innerHTML = '<tr><th>type</th><th>count</th></tr>' + s.events_by_type.map(x=>`<tr><td>${x.type}</td><td>${x.count}</td></tr>`).join('')
-  const r = document.getElementById('rooms')
-  r.innerHTML = '<tr><th>room</th><th>count</th></tr>' + s.top_rooms.map(x=>`<tr><td>${x.room}</td><td>${x.count}</td></tr>`).join('')
+
+  document.getElementById('types').innerHTML = '<tr><th>type</th><th>count</th></tr>' +
+    s.events_by_type.map(x=>`<tr><td>${x.type}</td><td>${x.count}</td></tr>`).join('')
+
+  document.getElementById('rooms').innerHTML = '<tr><th>room</th><th>count</th></tr>' +
+    s.top_rooms.map(x=>`<tr><td>${x.room}</td><td>${x.count}</td></tr>`).join('')
+
+  const skips = q.skip_reasons || []
+  document.getElementById('skips').innerHTML = '<tr><th>reason</th><th>count</th></tr>' +
+    (skips.length ? skips.map(x=>`<tr><td>${x.reason}</td><td class="danger">${x.count}</td></tr>`).join('') : '<tr><td colspan="2">no skips</td></tr>')
+
+  const recent = e.items || []
+  document.getElementById('recent').innerHTML = '<tr><th>time</th><th>type</th><th>vendor/product</th><th>conf</th></tr>' +
+    recent.map(x=>`<tr><td>${x.created_at}</td><td>${x.event_type}</td><td>${x.vendor || '-'} / ${x.product_name || '-'}</td><td>${x.confidence ?? '-'}</td></tr>`).join('')
+
   document.getElementById('updated').textContent = 'updated: ' + new Date().toLocaleString()
 }
-load(); setInterval(load, 5000)
+load(); setInterval(load, 7000)
 </script>
 </body>
 </html>

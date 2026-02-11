@@ -51,6 +51,16 @@
 
 로그 파일: `priceit-starter/logs/kakao-export-runbook.log`
 
+## Controller 연동 규약 (v6)
+- runbook 시뮬레이션 출력은 반드시 아래 토큰을 포함한다.
+  - `NEXT_STEP_OK`
+  - `EVIDENCE:{"step":"runbook_simulation","status":"PASS|FAIL","checks":<int>,"failed":<int>,"proof_ts":"<iso8601>"}`
+- `status=PASS` 인 경우 `failed` 는 반드시 0이어야 하며, 불일치 시 controller가 실패로 강등한다.
+- controller 자동 모드 전환:
+  - 연속 실패 `>=2`: `downgrade` 모드(축소 점검)
+  - 연속 실패 `>=5`: `hold` 모드(실행 중단)
+- `hold` 해제는 수동(state.json `mode=normal`) 또는 실패 원인 제거 후 성공 증거 확보 시에만 진행한다.
+
 ---
 
 ## 실시간 파악사항(즉시 반영)

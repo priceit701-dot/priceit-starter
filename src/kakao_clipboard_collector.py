@@ -13,6 +13,7 @@ A안 자동 수집기 (macOS, KakaoTalk 데스크톱)
 
 import fcntl
 import hashlib
+import json
 import os
 import re
 import subprocess
@@ -35,6 +36,7 @@ from .db import init_db
 from .pipeline import ingest_line
 
 LOCK_FILE = Path("./logs/collector.lock")
+EVIDENCE_LOG = Path("./logs/kakao_collector_evidence.jsonl")
 
 _UI_NOISE_TOKENS = [
     "open chat",
@@ -54,9 +56,37 @@ CURRENT_ROOM_LIST_X = ROOM_LIST_X
 CURRENT_ROOM_LIST_Y_START = ROOM_LIST_Y_START
 CURRENT_ROOM_LIST_Y_STEP = ROOM_LIST_Y_STEP
 
+ROOM_RETRY_BUDGET = 2
+CYCLE_FAILURE_BUDGET = 12
+FOCUS_FAILURE_BUDGET = 4
 
-class FocusError(RuntimeError):
-    pass
+
+class CollectorError(RuntimeError):
+    code = "COLLECTOR_ERROR"
+
+
+class FocusError(CollectorError):
+    code = "FOCUS_LOST"
+
+
+class SafetyStopError(CollectorError):
+    code = "SAFETY_STOP"
+
+
+def _log_evidence(level: str, code: str, room: str = "", step: str = "", detail: str = "", extra: dict | None = None):
+    EVIDENCE_LOG.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "ts": datetime.now().isoformat(timespec="seconds"),
+        "level": level,
+        "code": code,
+        "room": room,
+        "step": step,
+        "detail": detail,
+    }
+    if extra:
+        payload.update(extra)
+    with EVIDENCE_LOG.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(payload, ensure_ascii=False) + "\n")
 
 
 @contextmanager
@@ -81,7 +111,19 @@ def _single_instance_lock(path: Path):
 
 
 def _run_applescript(script: str):
-    return subprocess.run(["osascript", "-e", script], check=False, capture_output=True, text=True)
+    try:
+        return subprocess.run(
+            ["osascript", "-e", script],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+    except subprocess.TimeoutExpired:
+        class _R:
+            stdout = ""
+            stderr = "timeout"
+        return _R()
 
 
 def _frontmost_app_name() -> str:
@@ -133,7 +175,6 @@ def _copy_chat_text() -> str:
         time.sleep(0.20)
         return _pbpaste()
     finally:
-        # 사용자 클립보드 오염 최소화
         _pbcopy(original_clipboard)
 
 
@@ -185,6 +226,7 @@ def _auto_calibrate_room_list():
             f"collector calibrate | x={CURRENT_ROOM_LIST_X} y0={CURRENT_ROOM_LIST_Y_START} step={CURRENT_ROOM_LIST_Y_STEP} score={best_score}",
             flush=True,
         )
+        _log_evidence("info", "CALIBRATED", step="calibrate", extra={"x": CURRENT_ROOM_LIST_X, "y0": CURRENT_ROOM_LIST_Y_START, "step_size": CURRENT_ROOM_LIST_Y_STEP, "score": best_score})
 
 
 def _looks_like_noise_dump(text: str) -> bool:
@@ -193,7 +235,6 @@ def _looks_like_noise_dump(text: str) -> bool:
         return True
     low = s.lower()
     token_hits = sum(1 for t in _UI_NOISE_TOKENS if t in low)
-    # UI 문자열 다량 포함 시 잘못된 포커스/복사로 간주
     return token_hits >= 3
 
 
@@ -202,7 +243,6 @@ def _text_sig(text: str) -> str:
 
 
 def _idle_seconds() -> float:
-    """macOS HID idle seconds (best-effort)."""
     p = subprocess.run(
         ["ioreg", "-c", "IOHIDSystem"],
         capture_output=True,
@@ -213,7 +253,6 @@ def _idle_seconds() -> float:
     m = re.search(r'"HIDIdleTime"\s*=\s*(\d+)', out)
     if not m:
         return 0.0
-    # ns -> s
     return int(m.group(1)) / 1_000_000_000.0
 
 
@@ -244,45 +283,73 @@ def collect_cycle(base_room_name: str, rooms_per_cycle: int, last_sig_by_room: d
     skipped_same = 0
     same_sig_streak = 0
     prev_sig = None
+    cycle_failures = 0
 
     try:
         for i in range(rooms_per_cycle):
             scanned += 1
             room_name = f"{base_room_name}_{i+1:02d}"
 
-            _assert_kakao_focus()
-            _select_room_by_index(i)
-            time.sleep(ROOM_SWITCH_DELAY_SEC)
-            text = _copy_chat_text()
+            ok = False
+            for attempt in range(1, ROOM_RETRY_BUDGET + 1):
+                try:
+                    _assert_kakao_focus()
+                    _select_room_by_index(i)
+                    _key(36)
+                    time.sleep(max(ROOM_SWITCH_DELAY_SEC, 0.9))
+                    text = _copy_chat_text()
+                    if not text.strip():
+                        raise CollectorError("empty clipboard dump")
 
-            if _looks_like_noise_dump(text):
-                skipped_noise += 1
-                continue
+                    if _looks_like_noise_dump(text):
+                        skipped_noise += 1
+                        _log_evidence("warn", "NOISE_DUMP", room=room_name, step="copy", detail=f"attempt={attempt}")
+                        raise CollectorError("noise dump")
 
-            sig = _text_sig(text)
-            if prev_sig == sig:
-                same_sig_streak += 1
-            else:
-                same_sig_streak = 0
-            prev_sig = sig
+                    sig = _text_sig(text)
+                    if prev_sig == sig:
+                        same_sig_streak += 1
+                    else:
+                        same_sig_streak = 0
+                    prev_sig = sig
 
-            # room switch가 실제로 안 되고 같은 화면만 반복될 때 조기 감지
-            if same_sig_streak >= 8:
-                raise FocusError("room switching appears stuck (same screen repeatedly)")
+                    if same_sig_streak >= 8:
+                        _log_evidence("error", "ROOM_SWITCH_STUCK", room=room_name, step="room-switch", detail=f"streak={same_sig_streak}")
+                        total_added += _ingest_text(f"{base_room_name}_LIVE", text)
+                        print("collector fallback | switching stuck -> live room ingest", flush=True)
+                        return total_added
 
-            if last_sig_by_room.get(room_name) == sig:
-                skipped_same += 1
+                    if last_sig_by_room.get(room_name) == sig:
+                        skipped_same += 1
 
-            # 핵심: 시그니처 동일여부와 무관하게 항상 ingest 시도(중복은 DB hash가 차단)
-            last_sig_by_room[room_name] = sig
-            total_added += _ingest_text(room_name, text)
+                    last_sig_by_room[room_name] = sig
+                    added = _ingest_text(room_name, text)
+                    total_added += added
+                    _log_evidence("info", "ROOM_OK", room=room_name, step="ingest", extra={"attempt": attempt, "added": added, "sig": sig[:12]})
+                    ok = True
+                    break
+                except FocusError as e:
+                    _log_evidence("error", "FOCUS_LOST", room=room_name, step="focus-check", detail=str(e), extra={"attempt": attempt})
+                    raise
+                except CollectorError as e:
+                    cycle_failures += 1
+                    _log_evidence("warn", "ROOM_RETRY", room=room_name, step="collect", detail=str(e), extra={"attempt": attempt, "retry_budget": ROOM_RETRY_BUDGET})
+                    time.sleep(0.5 * attempt)
+
+            if not ok:
+                cycle_failures += 1
+                _log_evidence("error", "ROOM_GIVEUP", room=room_name, step="collect", detail=f"retry_exhausted budget={ROOM_RETRY_BUDGET}")
+
+            if cycle_failures >= CYCLE_FAILURE_BUDGET:
+                raise SafetyStopError(f"cycle failure budget exceeded: {cycle_failures}/{CYCLE_FAILURE_BUDGET}")
     finally:
         pass
 
     print(
-        f"cycle stats | scanned={scanned} added={total_added} skipped_same={skipped_same} skipped_noise={skipped_noise}",
+        f"cycle stats | scanned={scanned} added={total_added} skipped_same={skipped_same} skipped_noise={skipped_noise} failures={cycle_failures}",
         flush=True,
     )
+    _log_evidence("info", "CYCLE_DONE", step="cycle", extra={"scanned": scanned, "added": total_added, "skipped_same": skipped_same, "skipped_noise": skipped_noise, "failures": cycle_failures})
     return total_added
 
 
@@ -294,6 +361,7 @@ def main():
     )
 
     last_sig_by_room = {}
+    focus_failures = 0
     while True:
         try:
             idle_s = _idle_seconds()
@@ -302,21 +370,34 @@ def main():
                     f"[{datetime.now().strftime('%H:%M:%S')}] skip cycle (user active, idle={idle_s:.1f}s)",
                     flush=True,
                 )
+                _log_evidence("info", "SKIP_ACTIVE_USER", step="idle-check", detail=f"idle={idle_s:.2f}s")
             else:
                 added = collect_cycle(KAKAO_ROOM_NAME, ROOMS_PER_CYCLE, last_sig_by_room)
                 print(f"[{datetime.now().strftime('%H:%M:%S')}] cycle done +{added}", flush=True)
+                focus_failures = 0
         except FocusError as e:
+            focus_failures += 1
             print(f"collector focus warning: {e}", flush=True)
-            # 다음 사이클 전에 포커스 복구 시도
+            _log_evidence("error", "FOCUS_LOST", step="cycle", detail=str(e), extra={"focus_failures": focus_failures})
             try:
                 _activate_kakao()
             except Exception:
                 pass
+            if focus_failures >= FOCUS_FAILURE_BUDGET:
+                _log_evidence("critical", "SAFETY_STOP", step="cycle", detail=f"focus failure budget exceeded: {focus_failures}/{FOCUS_FAILURE_BUDGET}")
+                print("collector safety stop: focus failure budget exceeded", flush=True)
+                break
+        except SafetyStopError as e:
+            _log_evidence("critical", "SAFETY_STOP", step="cycle", detail=str(e))
+            print(f"collector safety stop: {e}", flush=True)
+            break
         except KeyboardInterrupt:
             print("stopped", flush=True)
+            _log_evidence("info", "STOPPED", step="signal", detail="keyboard_interrupt")
             break
         except Exception as e:
             print("collector error:", e, flush=True)
+            _log_evidence("error", "UNHANDLED", step="cycle", detail=str(e))
         time.sleep(COLLECT_INTERVAL_SEC)
 
 
@@ -326,3 +407,4 @@ if __name__ == "__main__":
             main()
     except RuntimeError as e:
         print(str(e), flush=True)
+        _log_evidence("warn", "LOCKED", step="startup", detail=str(e))

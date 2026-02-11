@@ -1,9 +1,12 @@
 {
   "runbook_path": "/Users/sanghun/.openclaw/workspace/priceit-starter/docs/kakao-openchat-export-runbook.md",
   "cycle_sec": 5,
-  "executor_command": "",
+  "executor_command": "python3 scripts/simulate_ops_runbook.py",
+  "executor_command_downgrade": "python3 scripts/simulate_ops_runbook.py --mode=downgrade",
   "require_next_step_token": "NEXT_STEP_OK",
   "require_evidence_token": "EVIDENCE:",
   "max_retry": 3,
+  "downgrade_after_failures": 2,
+  "hold_after_failures": 5,
   "recovery_command": ""
 }

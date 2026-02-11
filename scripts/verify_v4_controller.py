@@ -11,7 +11,7 @@ policy = {
 
 ok_result = {
     'ok': True,
-    'stdout': 'NEXT_STEP_OK\nEVIDENCE:{"step":"collect","status":"PASS","count":12}'
+    'stdout': 'NEXT_STEP_OK\nEVIDENCE:{"step":"collect","status":"PASS","checks":4,"failed":0,"proof_ts":"2026-02-11T23:59:59"}'
 }
 fail_result = {
     'ok': True,

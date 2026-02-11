@@ -223,6 +223,10 @@ def ingest_line(room_name: str, line: str, sender: str = "unknown", created_at: 
 
     if parsed.event_type in {"SOLD_OUT", "RESTOCK", "PRICE_DOWN", "PRICE_UP"}:
         old_new = f" ({parsed.old_price} → {parsed.new_price})" if parsed.old_price or parsed.new_price else ""
-        send_telegram(f"[{parsed.event_type}] {room_name}\n{parsed.vendor or ''} {parsed.product_name or ''}{old_new}".strip())
+        dedup_key = f"{msg_id}:{parsed.event_type}:{parsed.old_price}:{parsed.new_price}:{parsed.stock_status}"
+        send_telegram(
+            f"[{parsed.event_type}] {room_name}\n{parsed.vendor or ''} {parsed.product_name or ''}{old_new}".strip(),
+            idempotency_key=dedup_key,
+        )
 
     return True

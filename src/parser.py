@@ -12,7 +12,8 @@ QUOTED_PRODUCT_RE = re.compile(r"[‘'\"]\s*([^'‘’\"\n]+?)\s*[’'\"]")
 UP_KEYWORDS = ["인상", "올랐", "상승", "⬆️", "🔺", "가격인상"]
 DOWN_KEYWORDS = ["인하", "내렸", "떨", "할인", "⬇️", "🔻", "가격인하", "특가"]
 SOLD_OUT_KEYWORDS = ["품절", "sold out", "솔드아웃", "일시품절", "품절요청", "품절예정"]
-RESTOCK_KEYWORDS = ["재입고", "입고", "복구", "판매재개", "재개"]
+RESTOCK_KEYWORDS = ["재입고", "복구", "판매재개", "재개", "입고완료", "재입고완료"]
+NEGATIVE_RESTOCK_HINTS = ["입고 지연", "원물 부족", "순차출고", "출고 지연", "배송 지연"]
 
 HEADER_ONLY_PATTERNS = [
     "상품변동 요약",
@@ -119,6 +120,7 @@ def _parse_product(text: str):
     if bracket:
         b = bracket.group(1).strip()
         b = re.sub(r"(안내|공지|예정|요약)$", "", b).strip(" :-")
+        b = re.sub(r"(가격인상|가격인하|가격변동|출고지연|품절예정)", "", b).strip(" :-")
         if b and len(b) > 1 and b not in {"가격인상", "가격인하", "가격변동"}:
             return b
 
@@ -154,7 +156,9 @@ def parse_message(text: str) -> Optional[ParsedEvent]:
         return ParsedEvent(vendor, product_name, "SOLD_OUT_RISK", None, None, "RISK", 0.86)
 
     # Restock / resume
-    if any(k in text for k in RESTOCK_KEYWORDS) or any(k in lower for k in RESTOCK_KEYWORDS):
+    if (any(k in text for k in RESTOCK_KEYWORDS) or any(k in lower for k in RESTOCK_KEYWORDS)) and not any(
+        hint in text for hint in NEGATIVE_RESTOCK_HINTS
+    ):
         return ParsedEvent(vendor, product_name, "RESTOCK", None, None, "IN_STOCK", 0.90)
 
     # 신규상품/신규등록

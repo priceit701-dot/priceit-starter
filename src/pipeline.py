@@ -14,14 +14,36 @@ def _is_noise_line(line: str) -> bool:
     s = line.strip().lower()
     if not s:
         return True
+
+    # UI/devtools/css pollution
     css_tokens = [
         "border:", "padding:", "margin:", "box-sizing", "background-color:",
         "color:", "height:", "width:", "--", "counter-reset:", "katex",
     ]
     if any(tok in s for tok in css_tokens):
         return True
+
+    # Kakao openchat boilerplate / join-leave noise
+    kakao_noise_patterns = [
+        "님이 들어왔습니다",
+        "님이 나갔습니다",
+        "오픈채팅봇",
+        "환영합니다 대표님",
+        "우측 상단",
+        "공지사항에 있는 발주가이드",
+        "\ud83d\udcac 상품/발주/송장/cs 문의는 1:1 채팅 바랍니다",
+        "\ud83d\udc9b 발주마감",
+        "운영정책을 위반한 메시지",
+        "불법촬영물 식별",
+        "관리자가",
+        "메시지가 삭제되었습니다",
+    ]
+    if any(p in line for p in kakao_noise_patterns) or any(p in s for p in ["님이 들어왔습니다", "님이 나갔습니다", "메시지가 삭제되었습니다"]):
+        return True
+
     if s.startswith("http") and "kakao" not in s and "docs.google.com" not in s:
         return False
+
     # very short symbol-only lines
     if len(s) < 2:
         return True

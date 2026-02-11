@@ -397,6 +397,25 @@ def stats_seller(limit_hours: int = 24, feed_limit: int = 30, action_limit: int 
     )
     scoped_events = [dict(r) for r in cur.fetchall()]
 
+    # 룸 문맥 기반 상품명 복원: 공지형/긴급형 문장에서 직전 확정 상품명을 상속
+    scoped_events_chrono = sorted(scoped_events, key=lambda x: (x.get("created_at") or "", x.get("id") or 0))
+    room_last_named_item = {}
+    resolved_item_name_by_event_id = {}
+    for ev in scoped_events_chrono:
+        item_fields = _extract_item_fields(ev.get("message_text"), vendor=ev.get("vendor"))
+        best_name, source = _best_item_name(ev.get("product_name"), item_fields.get("item_name"), ev.get("vendor"), ev.get("message_text"))
+        room = ev.get("room_name") or ""
+        et = ev.get("event_type") or ""
+        if best_name == "미분류 상품" and et in {"SOLD_OUT", "DELAY_NOTICE", "NOTICE", "PRICE_UP", "PRICE_DOWN"}:
+            inherited = room_last_named_item.get(room)
+            if inherited:
+                best_name = inherited
+                source = "room_context"
+        elif best_name != "미분류 상품":
+            room_last_named_item[room] = best_name
+
+        resolved_item_name_by_event_id[ev.get("id")] = {"item_name": best_name, "source": source}
+
     def clean_text(value):
         text = (value or "").strip()
         if not text:
@@ -412,6 +431,9 @@ def stats_seller(limit_hours: int = 24, feed_limit: int = 30, action_limit: int 
         return (vendor.lower(), product.lower())
 
     def item_label(row):
+        rid = row.get("id")
+        if rid in resolved_item_name_by_event_id:
+            return resolved_item_name_by_event_id[rid]["item_name"]
         extracted = _extract_item_fields(row.get("message_text"), vendor=row.get("vendor"))
         best_name, _ = _best_item_name(row.get("product_name"), extracted.get("item_name"), row.get("vendor"), row.get("message_text"))
         return best_name

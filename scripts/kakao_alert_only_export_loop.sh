@@ -88,11 +88,13 @@ rows=set()
 for e in obj.get('elements',[]):
     t=str(e.get('text','')).strip()
     x,y=e.get('at',[0,0])
-    # unread badge OCR: right area + 짧은 숫자 토큰(약간의 OCR 잡음 허용)
+    # unread badge OCR(강한 트리거): 오픈채팅 목록 각 방 우측의 빨간 숫자만 사용
+    # 제외: 좌측 카카오 로고 배지, 상단 채팅/오픈채팅 탭 배지
     has_digit = any(ch.isdigit() for ch in t)
     has_colon = ':' in t
     short_like = len(t) <= 4
-    if has_digit and (not has_colon) and short_like and int(x)>=680:
+    in_room_list_y = 90 <= int(y) <= 950
+    if has_digit and (not has_colon) and short_like and int(x)>=680 and in_room_list_y:
         nearest=min(Y,key=lambda yy:abs(yy-int(y)))
         if abs(nearest-int(y))<=45:
             rows.add(nearest)

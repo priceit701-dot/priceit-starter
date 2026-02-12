@@ -1,0 +1,23 @@
+[
+  {
+    "site": "팡이농장",
+    "url": "https://jaehwan0330.adminplus.co.kr/partner/login.html?rtnurl=%2Fpartner%2F",
+    "id": "priceit",
+    "pw": "jaehwan0330",
+    "enabled": true
+  },
+  {
+    "site": "팜허브",
+    "url": "https://priceit.adminplus.co.kr/partner/login.html",
+    "id": "seller_00",
+    "pw": "131313",
+    "enabled": true
+  },
+  {
+    "site": "산지이음(오렌지씨)",
+    "url": "https://orangec.adminplus.co.kr/partner/login.html?rtnurl=%2Fpartner%2F",
+    "id": "priceit",
+    "pw": "orangec33",
+    "enabled": true
+  }
+]

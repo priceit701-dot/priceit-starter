@@ -1,0 +1,56 @@
+{
+  "download_dir": "/Users/sanghun/.openclaw/workspace/priceit-starter/automation/web-download/downloads",
+  "db_path": "/Users/sanghun/.openclaw/workspace/priceit-starter/data/priceit.db",
+  "processed_files": 7,
+  "results": [
+    {
+      "file": "/Users/sanghun/.openclaw/workspace/priceit-starter/automation/web-download/downloads/»óÇ°¸ñ·Ï.xlsx",
+      "site": "unknown",
+      "inserted": 977,
+      "skipped": 1,
+      "rows": 978
+    },
+    {
+      "file": "/Users/sanghun/.openclaw/workspace/priceit-starter/automation/web-download/downloads/산지이음_오렌지씨__1770893251_»óÇ°¸ñ·Ï.xlsx",
+      "site": "산지이음",
+      "inserted": 977,
+      "skipped": 1,
+      "rows": 978
+    },
+    {
+      "file": "/Users/sanghun/.openclaw/workspace/priceit-starter/automation/web-download/downloads/산지이음_오렌지씨__1770893883_»óÇ°¸ñ·Ï.xlsx",
+      "site": "산지이음",
+      "inserted": 0,
+      "skipped": 978,
+      "rows": 978
+    },
+    {
+      "file": "/Users/sanghun/.openclaw/workspace/priceit-starter/automation/web-download/downloads/팜허브_1770893240_»óÇ°¸ñ·Ï.xlsx",
+      "site": "팜허브",
+      "inserted": 1357,
+      "skipped": 1,
+      "rows": 1358
+    },
+    {
+      "file": "/Users/sanghun/.openclaw/workspace/priceit-starter/automation/web-download/downloads/팜허브_1770893870_»óÇ°¸ñ·Ï.xlsx",
+      "site": "팜허브",
+      "inserted": 0,
+      "skipped": 1358,
+      "rows": 1358
+    },
+    {
+      "file": "/Users/sanghun/.openclaw/workspace/priceit-starter/automation/web-download/downloads/팡이농장_1770893230_»óÇ°¸ñ·Ï.xlsx",
+      "site": "팡이농장",
+      "inserted": 849,
+      "skipped": 0,
+      "rows": 849
+    },
+    {
+      "file": "/Users/sanghun/.openclaw/workspace/priceit-starter/automation/web-download/downloads/팡이농장_1770893860_»óÇ°¸ñ·Ï.xlsx",
+      "site": "팡이농장",
+      "inserted": 0,
+      "skipped": 849,
+      "rows": 849
+    }
+  ]
+}

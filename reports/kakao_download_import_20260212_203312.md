@@ -1,0 +1,89 @@
+# Kakao Downloads Import Report
+
+- files: 118
+- msg_new: 735
+- msg_dup: 7431
+- evt_new: 231
+- evt_dup: 2581
+
+## per-file
+- KakaoTalk_Chat_신선마켓 위탁셀러_2026-02-12-14-12-07.csv: msg_new=5 msg_dup=58 evt_new=1 evt_dup=25
+- KakaoTalk_Chat_신선마켓 위탁셀러_2026-02-12-15-13-39.csv: msg_new=0 msg_dup=63 evt_new=0 evt_dup=26
+- KakaoTalk_Chat_신선마켓 위탁셀러_2026-02-12-15-15-46.csv: msg_new=0 msg_dup=63 evt_new=0 evt_dup=26
+- KakaoTalk_Chat_신선마켓 위탁셀러_2026-02-12-15-17-53.csv: msg_new=0 msg_dup=63 evt_new=0 evt_dup=26
+- KakaoTalk_Chat_신선마켓 위탁셀러_2026-02-12-17-34-46.csv: msg_new=1 msg_dup=63 evt_new=1 evt_dup=26
+- KakaoTalk_Chat_신선마켓 위탁셀러_2026-02-12-17-44-10.csv: msg_new=1 msg_dup=64 evt_new=1 evt_dup=27
+- KakaoTalk_Chat_신선마켓 위탁셀러_2026-02-12-18-15-19.csv: msg_new=1 msg_dup=65 evt_new=1 evt_dup=28
+- KakaoTalk_Chat_신선마켓 위탁셀러_2026-02-12-18-40-53.csv: msg_new=2 msg_dup=66 evt_new=1 evt_dup=29
+- KakaoTalk_Chat_월억도전 과일 신선식품 농수축산물 위탁판매 셀러모집_2026-02-12-11-30-56.csv: msg_new=2 msg_dup=0 evt_new=1 evt_dup=0
+- KakaoTalk_Chat_월억도전 과일 신선식품 농수축산물 위탁판매 셀러모집_2026-02-12-12-00-39.csv: msg_new=1 msg_dup=2 evt_new=1 evt_dup=1
+- KakaoTalk_Chat_월억도전 과일 신선식품 농수축산물 위탁판매 셀러모집_2026-02-12-14-04-28.csv: msg_new=2 msg_dup=3 evt_new=1 evt_dup=2
+- KakaoTalk_Chat_월억도전 과일 신선식품 농수축산물 위탁판매 셀러모집_2026-02-12-14-04-45.csv: msg_new=0 msg_dup=5 evt_new=0 evt_dup=3
+- KakaoTalk_Chat_월억도전 과일 신선식품 농수축산물 위탁판매 셀러모집_2026-02-12-14-05-01.csv: msg_new=0 msg_dup=5 evt_new=0 evt_dup=3
+- KakaoTalk_Chat_월억도전 과일 신선식품 농수축산물 위탁판매 셀러모집_2026-02-12-14-09-26.csv: msg_new=0 msg_dup=5 evt_new=0 evt_dup=3
+- KakaoTalk_Chat_월억도전 과일 신선식품 농수축산물 위탁판매 셀러모집_2026-02-12-14-09-52.csv: msg_new=0 msg_dup=5 evt_new=0 evt_dup=3
+- KakaoTalk_Chat_월억도전 과일 신선식품 농수축산물 위탁판매 셀러모집_2026-02-12-14-10-00.csv: msg_new=0 msg_dup=5 evt_new=0 evt_dup=3
+- KakaoTalk_Chat_월억도전 과일 신선식품 농수축산물 위탁판매 셀러모집_2026-02-12-14-10-09.csv: msg_new=0 msg_dup=5 evt_new=0 evt_dup=3
+- KakaoTalk_Chat_월억도전 과일 신선식품 농수축산물 위탁판매 셀러모집_2026-02-12-14-11-29.csv: msg_new=0 msg_dup=5 evt_new=0 evt_dup=3
+- KakaoTalk_Chat_월억도전 과일 신선식품 농수축산물 위탁판매 셀러모집_2026-02-12-15-14-56.csv: msg_new=7 msg_dup=5 evt_new=2 evt_dup=3
+- KakaoTalk_Chat_월억도전 과일 신선식품 농수축산물 위탁판매 셀러모집_2026-02-12-16-53-26.csv: msg_new=2 msg_dup=12 evt_new=1 evt_dup=5
+- KakaoTalk_Chat_월억도전 과일 신선식품 농수축산물 위탁판매 셀러모집_2026-02-12-17-00-44.csv: msg_new=1 msg_dup=14 evt_new=1 evt_dup=6
+- KakaoTalk_Chat_월억도전 과일 신선식품 농수축산물 위탁판매 셀러모집_2026-02-12-17-52-14.csv: msg_new=1 msg_dup=15 evt_new=1 evt_dup=7
+- KakaoTalk_Chat_월억도전 과일 신선식품 농수축산물 위탁판매 셀러모집_2026-02-12-17-54-42.csv: msg_new=1 msg_dup=16 evt_new=0 evt_dup=8
+- KakaoTalk_Chat_월억도전 과일 신선식품 농수축산물 위탁판매 셀러모집_2026-02-12-18-33-43.csv: msg_new=1 msg_dup=17 evt_new=0 evt_dup=8
+- KakaoTalk_Chat_월억도전 과일 신선식품 농수축산물 위탁판매 셀러모집_2026-02-12-19-08-11.csv: msg_new=1 msg_dup=18 evt_new=0 evt_dup=8
+- KakaoTalk_Chat_최고집 경북농산물유통센터 : B2B : 초보셀러환영_2026-02-10-17-12-05.csv: msg_new=43 msg_dup=0 evt_new=10 evt_dup=0
+- KakaoTalk_Chat_최고집 경북농산물유통센터 : B2B : 초보셀러환영_2026-02-10-17-21-04.csv: msg_new=2 msg_dup=43 evt_new=0 evt_dup=10
+- KakaoTalk_Chat_최고집 경북농산물유통센터 : B2B : 초보셀러환영_2026-02-12-10-35-23.csv: msg_new=103 msg_dup=45 evt_new=19 evt_dup=10
+- KakaoTalk_Chat_최고집 경북농산물유통센터 : B2B : 초보셀러환영_2026-02-12-10-39-32.csv: msg_new=1 msg_dup=148 evt_new=0 evt_dup=29
+- KakaoTalk_Chat_최고집 경북농산물유통센터 : B2B : 초보셀러환영_2026-02-12-10-46-08.csv: msg_new=1 msg_dup=149 evt_new=1 evt_dup=29
+- KakaoTalk_Chat_최고집 경북농산물유통센터 : B2B : 초보셀러환영_2026-02-12-11-24-31.csv: msg_new=4 msg_dup=150 evt_new=1 evt_dup=30
+- KakaoTalk_Chat_최고집 경북농산물유통센터 : B2B : 초보셀러환영_2026-02-12-11-30-15.csv: msg_new=2 msg_dup=154 evt_new=1 evt_dup=31
+- KakaoTalk_Chat_최고집 경북농산물유통센터 : B2B : 초보셀러환영_2026-02-12-11-35-09.csv: msg_new=3 msg_dup=156 evt_new=0 evt_dup=32
+- KakaoTalk_Chat_최고집 경북농산물유통센터 : B2B : 초보셀러환영_2026-02-12-11-36-40.csv: msg_new=0 msg_dup=159 evt_new=0 evt_dup=32
+- KakaoTalk_Chat_최고집 경북농산물유통센터 : B2B : 초보셀러환영_2026-02-12-15-01-52.csv: msg_new=8 msg_dup=159 evt_new=1 evt_dup=32
+- KakaoTalk_Chat_최고집 경북농산물유통센터 : B2B : 초보셀러환영_2026-02-12-15-17-03.csv: msg_new=4 msg_dup=167 evt_new=2 evt_dup=33
+- KakaoTalk_Chat_최고집 경북농산물유통센터 : B2B : 초보셀러환영_2026-02-12-15-39-38.csv: msg_new=5 msg_dup=171 evt_new=0 evt_dup=35
+- KakaoTalk_Chat_최고집 경북농산물유통센터 : B2B : 초보셀러환영_2026-02-12-16-53-13.csv: msg_new=4 msg_dup=176 evt_new=1 evt_dup=35
+- KakaoTalk_Chat_최고집 경북농산물유통센터 : B2B : 초보셀러환영_2026-02-12-16-56-56.csv: msg_new=2 msg_dup=180 evt_new=0 evt_dup=36
+- KakaoTalk_Chat_최고집 경북농산물유통센터 : B2B : 초보셀러환영_2026-02-12-17-28-57.csv: msg_new=1 msg_dup=182 evt_new=0 evt_dup=36
+- KakaoTalk_Chat_최고집 경북농산물유통센터 : B2B : 초보셀러환영_2026-02-12-17-59-51.csv: msg_new=3 msg_dup=183 evt_new=1 evt_dup=36
+- KakaoTalk_Chat_최고집 경북농산물유통센터 : B2B : 초보셀러환영_2026-02-12-18-01-12.csv: msg_new=2 msg_dup=186 evt_new=1 evt_dup=37
+- KakaoTalk_Chat_최고집 경북농산물유통센터 : B2B : 초보셀러환영_2026-02-12-18-17-47.csv: msg_new=2 msg_dup=188 evt_new=1 evt_dup=38
+- KakaoTalk_Chat_캄므커머스 셀러 모집방 농산 축산 수산 공산품 위탁공급_2026-02-12-10-48-12.csv: msg_new=53 msg_dup=0 evt_new=1 evt_dup=0
+- KakaoTalk_Chat_캄므커머스 셀러 모집방 농산 축산 수산 공산품 위탁공급_2026-02-12-11-32-17.csv: msg_new=1 msg_dup=53 evt_new=0 evt_dup=1
+- KakaoTalk_Chat_캄므커머스 셀러 모집방 농산 축산 수산 공산품 위탁공급_2026-02-12-17-02-05.csv: msg_new=7 msg_dup=54 evt_new=0 evt_dup=1
+- KakaoTalk_Chat_팜허브 당일출고 위탁판매 초저가 과일 농수축산가공신선_2026-02-12-10-48-32.csv: msg_new=63 msg_dup=0 evt_new=12 evt_dup=0
+- KakaoTalk_Chat_팜허브 당일출고 위탁판매 초저가 과일 농수축산가공신선_2026-02-12-11-33-43.csv: msg_new=1 msg_dup=63 evt_new=1 evt_dup=12
+- KakaoTalk_Chat_팜허브 당일출고 위탁판매 초저가 과일 농수축산가공신선_2026-02-12-11-38-06.csv: msg_new=1 msg_dup=64 evt_new=1 evt_dup=13
+- KakaoTalk_Chat_팜허브 당일출고 위탁판매 초저가 과일 농수축산가공신선_2026-02-12-11-39-37.csv: msg_new=1 msg_dup=65 evt_new=0 evt_dup=14
+- KakaoTalk_Chat_팜허브 당일출고 위탁판매 초저가 과일 농수축산가공신선_2026-02-12-11-40-16.csv: msg_new=0 msg_dup=66 evt_new=0 evt_dup=14
+- KakaoTalk_Chat_팡이그룹 과일위탁 농산물 셀러모집_2026-02-10-14-02-53.csv: msg_new=3 msg_dup=0 evt_new=1 evt_dup=0
+- KakaoTalk_Chat_팡이그룹 과일위탁 농산물 셀러모집_2026-02-10-14-28-35.csv: msg_new=0 msg_dup=3 evt_new=0 evt_dup=1
+- KakaoTalk_Chat_팡이그룹 과일위탁 농산물 셀러모집_2026-02-12-10-47-30.csv: msg_new=54 msg_dup=3 evt_new=9 evt_dup=1
+- KakaoTalk_Chat_팡이그룹 과일위탁 농산물 셀러모집_2026-02-12-11-31-36.csv: msg_new=1 msg_dup=57 evt_new=0 evt_dup=10
+- KakaoTalk_Chat_팡이그룹 과일위탁 농산물 셀러모집_2026-02-12-14-11-52.csv: msg_new=4 msg_dup=58 evt_new=1 evt_dup=10
+- KakaoTalk_Chat_팡이그룹 과일위탁 농산물 셀러모집_2026-02-12-15-13-27.csv: msg_new=0 msg_dup=62 evt_new=0 evt_dup=11
+- KakaoTalk_Chat_팡이그룹 과일위탁 농산물 셀러모집_2026-02-12-15-15-33.csv: msg_new=0 msg_dup=62 evt_new=0 evt_dup=11
+- KakaoTalk_Chat_팡이그룹 과일위탁 농산물 셀러모집_2026-02-12-15-17-40.csv: msg_new=0 msg_dup=62 evt_new=0 evt_dup=11
+- KakaoTalk_Chat_팡이그룹 과일위탁 농산물 셀러모집_2026-02-12-17-41-42.csv: msg_new=2 msg_dup=62 evt_new=1 evt_dup=11
+- KakaoTalk_Chat_📢 푸드대통령 📢 과일 위탁판매 농수산물 셀러모집_2026-02-12-10-47-51.csv: msg_new=42 msg_dup=0 evt_new=16 evt_dup=0
+- KakaoTalk_Chat_📢 푸드대통령 📢 과일 위탁판매 농수산물 셀러모집_2026-02-12-11-31-57.csv: msg_new=0 msg_dup=42 evt_new=0 evt_dup=16
+- KakaoTalk_Chat_📢 푸드대통령 📢 과일 위탁판매 농수산물 셀러모집_2026-02-12-14-11-22.csv: msg_new=0 msg_dup=42 evt_new=0 evt_dup=16
+- KakaoTalk_Chat_📢 푸드대통령 📢 과일 위탁판매 농수산물 셀러모집_2026-02-12-14-14-07.csv: msg_new=0 msg_dup=42 evt_new=0 evt_dup=16
+- KakaoTalk_Chat_📢 푸드대통령 📢 과일 위탁판매 농수산물 셀러모집_2026-02-12-14-14-23.csv: msg_new=0 msg_dup=42 evt_new=0 evt_dup=16
+- KakaoTalk_Chat_📢 푸드대통령 📢 과일 위탁판매 농수산물 셀러모집_2026-02-12-14-14-39.csv: msg_new=0 msg_dup=42 evt_new=0 evt_dup=16
+- KakaoTalk_Chat_📢 푸드대통령 📢 과일 위탁판매 농수산물 셀러모집_2026-02-12-14-14-56.csv: msg_new=0 msg_dup=42 evt_new=0 evt_dup=16
+- KakaoTalk_Chat_📢 푸드대통령 📢 과일 위탁판매 농수산물 셀러모집_2026-02-12-14-15-12.csv: msg_new=0 msg_dup=42 evt_new=0 evt_dup=16
+- KakaoTalk_Chat_📢 푸드대통령 📢 과일 위탁판매 농수산물 셀러모집_2026-02-12-14-19-50.csv: msg_new=0 msg_dup=42 evt_new=0 evt_dup=16
+- KakaoTalk_Chat_📢 푸드대통령 📢 과일 위탁판매 농수산물 셀러모집_2026-02-12-14-20-06.csv: msg_new=0 msg_dup=42 evt_new=0 evt_dup=16
+- KakaoTalk_Chat_📢 푸드대통령 📢 과일 위탁판매 농수산물 셀러모집_2026-02-12-14-20-23.csv: msg_new=0 msg_dup=42 evt_new=0 evt_dup=16
+- KakaoTalk_Chat_📢 푸드대통령 📢 과일 위탁판매 농수산물 셀러모집_2026-02-12-14-20-39.csv: msg_new=0 msg_dup=42 evt_new=0 evt_dup=16
+- KakaoTalk_Chat_📢 푸드대통령 📢 과일 위탁판매 농수산물 셀러모집_2026-02-12-14-20-56.csv: msg_new=0 msg_dup=42 evt_new=0 evt_dup=16
+- KakaoTalk_Chat_📢 푸드대통령 📢 과일 위탁판매 농수산물 셀러모집_2026-02-12-15-13-14.csv: msg_new=1 msg_dup=42 evt_new=1 evt_dup=16
+- KakaoTalk_Chat_📢 푸드대통령 📢 과일 위탁판매 농수산물 셀러모집_2026-02-12-15-15-21.csv: msg_new=0 msg_dup=43 evt_new=0 evt_dup=17
+- KakaoTalk_Chat_📢 푸드대통령 📢 과일 위탁판매 농수산물 셀러모집_2026-02-12-15-17-28.csv: msg_new=0 msg_dup=43 evt_new=0 evt_dup=17
+- KakaoTalk_Chat_📢 푸드대통령 📢 과일 위탁판매 농수산물 셀러모집_2026-02-12-15-22-15.csv: msg_new=0 msg_dup=43 evt_new=0 evt_dup=17
+- KakaoTalk_Chat_📢 푸드대통령 📢 과일 위탁판매 농수산물 셀러모집_2026-02-12-16-59-23.csv: msg_new=5 msg_dup=43 evt_new=2 evt_dup=17
+- KakaoTalk_Chat_📢 푸드대통령 📢 과일 위탁판매 농수산물 셀러모집_2026-02-12-18-10-23.csv: msg_new=3 msg_dup=48 evt_new=1 evt_dup=19
+- KakaoTalk_Chat_📢 푸드대통령 📢 과일 위탁판매 농수산물 셀러모집_2026-02-12-18-11-44.csv: msg_new=1 msg_dup=51 evt_new=0 evt_dup=20

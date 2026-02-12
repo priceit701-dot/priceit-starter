@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SKILL="/Users/sanghun/.openclaw/workspace/skills/mac-use/scripts/mac_use.py"
-MAIN_ID="3052"
+MAIN_ID="5113"
 LOG="/Users/sanghun/.openclaw/workspace/priceit-starter/logs/kakao_alert_only_export_loop.log"
 STATE="/Users/sanghun/.openclaw/workspace/priceit-starter/logs/kakao_alert_only_state.json"
 TOP_FALLBACK_Y=120
@@ -81,7 +81,7 @@ alert_rows_json() {
   python3 - <<'PY'
 import json,subprocess,re
 Y=[120,236,350,465,580,696,812,928]
-cmd=['python3','/Users/sanghun/.openclaw/workspace/skills/mac-use/scripts/mac_use.py','screenshot','카카오톡','--id','3052']
+cmd=['python3','/Users/sanghun/.openclaw/workspace/skills/mac-use/scripts/mac_use.py','screenshot','카카오톡']
 out=subprocess.check_output(cmd).decode('utf-8','ignore')
 obj=json.loads(out)
 rows=set()
@@ -105,7 +105,7 @@ PY
 top_signature() {
   python3 - <<'PY'
 import json,subprocess,re
-cmd=['python3','/Users/sanghun/.openclaw/workspace/skills/mac-use/scripts/mac_use.py','screenshot','카카오톡','--id','3052']
+cmd=['python3','/Users/sanghun/.openclaw/workspace/skills/mac-use/scripts/mac_use.py','screenshot','카카오톡']
 out=subprocess.check_output(cmd).decode('utf-8','ignore')
 obj=json.loads(out)
 # top row signature from elements near first row region

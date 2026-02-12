@@ -7,7 +7,7 @@ from pathlib import Path
 from PIL import Image
 import pytesseract
 
-Y_ROWS = [120, 236, 350, 465, 580, 696, 812, 928]
+Y_ROWS = [126, 205, 269, 344, 417, 490, 563, 636]
 SKILL = "/Users/sanghun/.openclaw/workspace/skills/mac-use/scripts/mac_use.py"
 
 

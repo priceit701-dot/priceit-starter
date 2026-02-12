@@ -7,9 +7,9 @@ LOG="/Users/sanghun/.openclaw/workspace/priceit-starter/logs/kakao_alert_only_ex
 STATE="/Users/sanghun/.openclaw/workspace/priceit-starter/logs/kakao_alert_only_state.json"
 TOP_FALLBACK_Y=120
 
-# verified click line coordinates (openchat list)
+# tuned fixed row coordinates (user-calibrated)
 X=237
-Y_LIST=(120 236 350 465 580 696 812 928)
+Y_LIST=(126 205 269 344 417 490 563 636)
 HAMBURGER_X=762
 HAMBURGER_Y=91
 SAVE_CONFIRM_X=1206
@@ -37,6 +37,24 @@ LAST_ROOM_TS_STATE="/Users/sanghun/.openclaw/workspace/priceit-starter/logs/kaka
 [[ "${1:-}" == "--once" ]] && ONCE=1
 
 mkdir -p "$(dirname "$LOG")"
+
+abs_click() {
+  local ax="$1"
+  local ay="$2"
+  python3 - "$ax" "$ay" <<'PY'
+import sys,time
+from Quartz import (
+  CGEventCreateMouseEvent, CGEventPost, kCGHIDEventTap,
+  kCGEventMouseMoved, kCGEventLeftMouseDown, kCGEventLeftMouseUp,
+  kCGMouseButtonLeft
+)
+x=float(sys.argv[1]); y=float(sys.argv[2])
+for et in (kCGEventMouseMoved, kCGEventLeftMouseDown, kCGEventLeftMouseUp):
+    ev=CGEventCreateMouseEvent(None, et, (x,y), kCGMouseButtonLeft)
+    CGEventPost(kCGHIDEventTap, ev)
+    time.sleep(0.02)
+PY
+}
 
 resolve_main_id() {
   python3 - <<'PY'
@@ -77,6 +95,21 @@ for w in arr:
         print(w.get('title'))
         break
 PY
+}
+
+x_for_row() {
+  local y="$1"
+  case "$y" in
+    126) echo 237 ;;
+    205) echo 237 ;;
+    269) echo 228 ;;
+    344) echo 231 ;;
+    417) echo 231 ;;
+    490) echo 231 ;;
+    563) echo 231 ;;
+    636) echo 231 ;;
+    *) echo "$X" ;;
+  esac
 }
 
 latest_kakao_file_after() {
@@ -139,7 +172,9 @@ export_one_row() {
 
   sleep 0.2
 
-  python3 "$SKILL" click --app 카카오톡 --id "$MAIN_ID" "$X" "$y" >/dev/null 2>&1 || true
+  local row_x
+  row_x="$(x_for_row "$y")"
+  python3 "$SKILL" click --app 카카오톡 --id "$MAIN_ID" "$row_x" "$y" >/dev/null 2>&1 || true
   python3 "$SKILL" key --app 카카오톡 return >/dev/null 2>&1 || true
   sleep 0.8
 
@@ -148,7 +183,9 @@ export_one_row() {
   if [[ -n "$room" && "$room" == "$last_room" ]]; then
     local y2=$((y+18))
     sleep 0.2
-    python3 "$SKILL" click --app 카카오톡 --id "$MAIN_ID" "$X" "$y2" >/dev/null 2>&1 || true
+    local row_x2
+    row_x2="$(x_for_row "$y2")"
+    python3 "$SKILL" click --app 카카오톡 --id "$MAIN_ID" "$row_x2" "$y2" >/dev/null 2>&1 || true
     python3 "$SKILL" key --app 카카오톡 return >/dev/null 2>&1 || true
     sleep 0.8
     room="$(current_room_title || true)"
@@ -157,26 +194,26 @@ export_one_row() {
   local start_ts
   start_ts=$(date +%s)
 
-  python3 "$SKILL" click --app 카카오톡 "$HAMBURGER_X" "$HAMBURGER_Y" >/dev/null 2>&1 || true
+  abs_click "$HAMBURGER_X" "$HAMBURGER_Y"
   sleep 0.2
   python3 "$SKILL" key --app 카카오톡 opt+cmd+, >/dev/null 2>&1 || true
   sleep 0.8
   local sid
   sid="$(MAIN_ID="$MAIN_ID" settings_window_id || true)"
   if [[ -n "$sid" ]]; then
-    python3 "$SKILL" click --app 카카오톡 --id "$sid" "$SETTINGS_MENU_X" "$SETTINGS_MENU_Y" >/dev/null 2>&1 || true
+    abs_click "$SETTINGS_MENU_X" "$SETTINGS_MENU_Y"
     sleep 0.35
-    python3 "$SKILL" click --app 카카오톡 --id "$sid" "$SAVE_BTN_X" "$SAVE_BTN_Y" >/dev/null 2>&1 || true
+    abs_click "$SAVE_BTN_X" "$SAVE_BTN_Y"
     sleep 0.5
-    python3 "$SKILL" click --app 카카오톡 --id "$sid" "$CONFIRM_BTN_X" "$CONFIRM_BTN_Y" >/dev/null 2>&1 || true
+    abs_click "$CONFIRM_BTN_X" "$CONFIRM_BTN_Y"
     sleep 0.6
   else
     echo "[$(date '+%F %T')] WARN settings_window_not_found room=$room" >> "$LOG"
   fi
 
-  python3 "$SKILL" click --app 카카오톡 "$SAVE_CONFIRM_X" "$SAVE_CONFIRM_Y" >/dev/null 2>&1 || true
+  abs_click "$SAVE_CONFIRM_X" "$SAVE_CONFIRM_Y"
   sleep 0.4
-  python3 "$SKILL" click --app 카카오톡 "$DONE_X" "$DONE_Y" >/dev/null 2>&1 || true
+  abs_click "$DONE_X" "$DONE_Y"
   sleep 0.8
 
   local newf

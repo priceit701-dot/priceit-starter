@@ -19,6 +19,8 @@ SAVE_BTN_Y=365
 
 INTERVAL=60
 ONCE=0
+# OCR이 배지를 놓치는 경우를 대비해 비어있으면 8개 전수 처리
+ALL_WHEN_EMPTY=1
 [[ "${1:-}" == "--once" ]] && ONCE=1
 
 mkdir -p "$(dirname "$LOG")"
@@ -178,10 +180,16 @@ while true; do
   last_sig=""
   [[ -f "$STATE" ]] && last_sig="$(cat "$STATE" 2>/dev/null || true)"
 
-  # fallback: badge OCR가 비어도 top row가 바뀌면 top만 수집
+  # fallback 1: badge OCR가 비어도 top row가 바뀌면 top 수집
   if [[ "$rows_json" == "[]" && -n "$top_sig" && "$top_sig" != "$last_sig" ]]; then
     rows_json="[$TOP_FALLBACK_Y]"
     echo "[$(date '+%F %T')] fallback_top_change top_sig='$top_sig'" >> "$LOG"
+  fi
+
+  # fallback 2: 여전히 비어있으면 8개 전수 처리(배지 누락 대비)
+  if [[ "$rows_json" == "[]" && "$ALL_WHEN_EMPTY" == "1" ]]; then
+    rows_json="[120,236,350,465,580,696,812,928]"
+    echo "[$(date '+%F %T')] fallback_all_rows" >> "$LOG"
   fi
 
   echo "$top_sig" > "$STATE"

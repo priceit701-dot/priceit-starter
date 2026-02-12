@@ -199,8 +199,8 @@ def run_once() -> None:
     if not detected:
         return
 
-    # 학습/안정화 단계: 한 번에 1개 행만 처리
-    for ry in detected[:1]:
+    # 운영 모드: 감지된 알람 행 전체 처리
+    for ry in detected:
         room_xy = nearest_room_by_y(coords.rooms, ry)
         if not room_xy:
             continue

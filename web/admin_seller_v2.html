@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Seller Admin v2 | Priceit</title>
+  <style>
+    :root{--bg:#0a1220;--panel:#121f35;--line:#2b4168;--text:#eaf2ff;--muted:#9fb1d0;--chip:#0d1930;--critical:#ff6e86;--warn:#ffbf69;--ok:#5de2ae;--info:#7bb4ff}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Apple SD Gothic Neo',sans-serif}
+    .page{max-width:1380px;margin:0 auto;padding:14px;display:grid;gap:10px}
+    .panel{border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:12px}
+    .top{position:sticky;top:0;z-index:4;background:rgba(10,18,32,.92);backdrop-filter:blur(8px)}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .title{font-size:20px;font-weight:700}
+    .muted{color:var(--muted)}
+    .btn{border:1px solid var(--line);background:#152743;color:var(--text);border-radius:8px;padding:7px 10px;font-size:12px;cursor:pointer}
+    .btn.primary{background:#1d3b67}
+    .chips{display:flex;gap:6px;flex-wrap:wrap}
+    .chip{border:1px solid var(--line);background:var(--chip);padding:3px 9px;border-radius:999px;font-size:12px}
+    .chip.critical{color:var(--critical)} .chip.warn{color:var(--warn)} .chip.ok{color:var(--ok)}
+
+    .main{display:grid;grid-template-columns:1.8fr 1fr;gap:10px}
+    .card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    .card{border:1px solid var(--line);border-radius:10px;background:var(--chip);padding:10px}
+    .card h3{margin:0 0 6px;font-size:14px}
+    .risk{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;border:1px solid var(--line)}
+    .risk.critical{color:var(--critical)} .risk.warn{color:var(--warn)} .risk.monitor{color:var(--ok)}
+    .kv{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:8px}
+    .kv .k{font-size:11px;color:var(--muted)} .kv .v{font-size:13px}
+    .actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:8px;border-bottom:1px solid var(--line);font-size:12px;text-align:left;vertical-align:top}
+    th{color:var(--muted);font-size:11px}
+    .danger{color:var(--critical)} .warn{color:var(--warn)} .ok{color:var(--ok)}
+    .section-title{display:flex;justify-content:space-between;align-items:center;margin:0 0 8px}
+    .section-title h2{margin:0;font-size:15px}
+
+    @media (max-width:1040px){.main{grid-template-columns:1fr}.card-grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="panel top">
+      <div class="row" style="justify-content:space-between">
+        <div>
+          <div class="title">셀러 어드민 v2 (상품·액션 우선)</div>
+          <div class="muted">상품 위험도 → 즉시 조치 → 상세 근거 순서</div>
+        </div>
+        <div class="row">
+          <a class="btn" href="/admin/seller">v1 보기</a>
+          <a class="btn" href="/dashboard">기존 대시보드</a>
+        </div>
+      </div>
+      <div class="row" style="margin-top:8px;justify-content:space-between">
+        <div class="chips" id="riskChips"><span class="chip">로딩 중...</span></div>
+        <div class="row">
+          <button class="btn primary">가격수정</button>
+          <button class="btn">재고확인</button>
+          <button class="btn">공지전송</button>
+          <button class="btn">보류</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="main">
+      <section class="panel">
+        <div class="section-title"><h2>상품 리스크 보드 (우선 처리)</h2><span class="muted" id="boardMeta">-</span></div>
+        <div id="productBoard" class="card-grid"><div class="muted">로딩 중...</div></div>
+      </section>
+
+      <section class="panel">
+        <div class="section-title"><h2>즉시 조치 큐</h2><span class="muted" id="actionCount">-</span></div>
+        <table>
+          <thead><tr><th>유형</th><th>상품</th><th>사유</th><th>점수</th></tr></thead>
+          <tbody id="actionRows"><tr><td colspan="4" class="muted">로딩 중...</td></tr></tbody>
+        </table>
+      </section>
+    </section>
+
+    <section class="panel">
+      <div class="section-title"><h2>미분류 항목 (분리)</h2><button class="btn">일괄분류 후보 적용</button></div>
+      <table>
+        <thead><tr><th>상품</th><th>요약</th><th>근거</th><th>룸</th></tr></thead>
+        <tbody id="unclassifiedRows"><tr><td colspan="4" class="muted">로딩 중...</td></tr></tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <div class="section-title"><h2>상세 변경 내역 (참조)</h2><span class="muted">최근 20개</span></div>
+      <table>
+        <thead><tr><th>상품</th><th>변경</th><th>근거</th><th>룸</th></tr></thead>
+        <tbody id="detailRows"><tr><td colspan="4" class="muted">로딩 중...</td></tr></tbody>
+      </table>
+    </section>
+  </main>
+
+<script>
+const esc=(v)=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+const fmt=(v)=>{if(!v)return '-';const d=new Date(v);return Number.isNaN(d.getTime())?esc(v):d.toLocaleString('ko-KR',{hour12:false});};
+const num=(v)=>Number.isFinite(v)?v.toLocaleString('ko-KR'):'-';
+const tone=(t)=>({SOLD_OUT:'critical',DELAY_NOTICE:'warn',PRICE_UP:'warn',PRICE_DOWN:'monitor',RESTOCK:'monitor'}[t]||'monitor');
+
+function scoreRisk(row){
+  const ev=row.event_count||0, delta=Math.abs(row.max_abs_price_change_pct||0);
+  if(ev>=8 || delta>=10) return 'critical';
+  if(ev>=4 || delta>=5) return 'warn';
+  return 'monitor';
+}
+function riskLabel(r){return r==='critical'?'치명':r==='warn'?'주의':'관찰';}
+
+function renderTopChips(d){
+  const cnt=d?.evidence_fields?.event_type_counts||{};
+  const chips=[
+    {k:'치명',v:(cnt.SOLD_OUT||0)+(cnt.DELAY_NOTICE||0),c:'critical'},
+    {k:'주의',v:(cnt.PRICE_UP||0)+(cnt.PRICE_DOWN||0),c:'warn'},
+    {k:'관찰',v:cnt.RESTOCK||0,c:'ok'},
+    {k:'미분류',v:(d?.change_summary_by_item||[]).filter(x=>!(x.item||'').trim()||(x.item||'').trim()==='미분류 상품').length,c:''}
+  ];
+  document.getElementById('riskChips').innerHTML=chips.map(x=>`<span class='chip ${x.c}'>${x.k} ${num(x.v)}</span>`).join('');
+}
+
+function rowText(x){
+  return `빈도 ${num(x.event_count)} · 최대변동 ${x.max_abs_price_change_pct==null?'-':x.max_abs_price_change_pct+'%'} · 최근 ${fmt(x.last_event_at)}`;
+}
+
+function renderProductBoard(rows){
+  const named=(rows||[]).filter(x=>(x.item||'').trim() && (x.item||'').trim()!=='미분류 상품').slice(0,8);
+  const box=document.getElementById('productBoard');
+  if(!named.length){box.innerHTML='<div class="muted">상품 데이터 없음</div>';return;}
+  box.innerHTML=named.map(x=>{
+    const risk=scoreRisk(x);
+    return `<article class='card'>
+      <h3>${esc(x.item)} <span class='risk ${risk}'>${riskLabel(risk)}</span></h3>
+      <div class='muted'>${esc(x.human_summary||'-')}</div>
+      <div class='kv'>
+        <div><div class='k'>이벤트 빈도</div><div class='v'>${num(x.event_count)}</div></div>
+        <div><div class='k'>최대 변동폭</div><div class='v'>${x.max_abs_price_change_pct==null?'-':x.max_abs_price_change_pct+'%'}</div></div>
+        <div><div class='k'>최근 발생</div><div class='v'>${fmt(x.last_event_at)}</div></div>
+      </div>
+      <div class='actions'>
+        <button class='btn primary'>가격수정</button>
+        <button class='btn'>재고확인</button>
+        <button class='btn'>보류</button>
+      </div>
+    </article>`;
+  }).join('');
+}
+
+function renderActionRows(items){
+  const rows=(items||[]).slice(0,12);
+  document.getElementById('actionCount').innerText=`${num(rows.length)}건`;
+  const el=document.getElementById('actionRows');
+  if(!rows.length){el.innerHTML="<tr><td colspan='4' class='muted'>즉시 조치 항목 없음</td></tr>";return;}
+  el.innerHTML=rows.map(x=>`<tr>
+    <td class='${tone(x.event_type)}'>${esc(x.event_type||'-')}</td>
+    <td>${esc(x.item||'-')}</td>
+    <td>${esc(x.reason||x.recommended_action||'-')}</td>
+    <td>${num(x.priority_score)}</td>
+  </tr>`).join('');
+}
+
+function renderChangeTables(rows){
+  const un=(rows||[]).filter(x=>!(x.item||'').trim() || (x.item||'').trim()==='미분류 상품');
+  const named=(rows||[]).filter(x=>(x.item||'').trim() && (x.item||'').trim()!=='미분류 상품').slice(0,20);
+  const unEl=document.getElementById('unclassifiedRows');
+  const deEl=document.getElementById('detailRows');
+  unEl.innerHTML=un.length?un.map(x=>`<tr><td>${esc(x.item||'미분류 상품')}</td><td>${esc(x.human_summary||'-')}</td><td>${rowText(x)}</td><td>${esc((x.recent_rooms||[]).join(', ')||'-')}</td></tr>`).join(''):"<tr><td colspan='4' class='muted'>미분류 없음</td></tr>";
+  deEl.innerHTML=named.length?named.map(x=>`<tr><td>${esc(x.item)}</td><td>${esc(x.human_summary||'-')}</td><td>${rowText(x)}</td><td>${esc((x.recent_rooms||[]).join(', ')||'-')}</td></tr>`).join(''):"<tr><td colspan='4' class='muted'>상세 내역 없음</td></tr>";
+}
+
+async function load(){
+  try{
+    const r=await fetch('/stats/seller?limit_hours=24&feed_limit=30&action_limit=20');
+    if(!r.ok) throw new Error(r.status);
+    const d=await r.json();
+    renderTopChips(d);
+    renderProductBoard(d.change_summary_by_item||[]);
+    renderActionRows(d.action_priority_list||[]);
+    renderChangeTables(d.change_summary_by_item||[]);
+    document.getElementById('boardMeta').innerText=`기준 ${d?.evidence_fields?.window_hours??'-'}h · 생성 ${fmt(d?.evidence_fields?.generated_at)}`;
+  }catch(e){
+    document.getElementById('productBoard').innerHTML='<div class="muted">불러오기 실패</div>';
+    document.getElementById('actionRows').innerHTML="<tr><td colspan='4' class='muted'>불러오기 실패</td></tr>";
+    document.getElementById('unclassifiedRows').innerHTML="<tr><td colspan='4' class='muted'>불러오기 실패</td></tr>";
+    document.getElementById('detailRows').innerHTML="<tr><td colspan='4' class='muted'>불러오기 실패</td></tr>";
+  }
+}
+load(); setInterval(load,30000);
+</script>
+</body>
+</html>

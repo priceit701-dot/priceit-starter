@@ -16,9 +16,32 @@ def nearest_row(y: int):
     return n if abs(n - y) <= 45 else None
 
 
-def main():
+def _resolve_main_window_id() -> str:
     try:
-        out = subprocess.check_output(["python3", SKILL, "screenshot", "카카오톡"], stderr=subprocess.DEVNULL).decode("utf-8", "ignore")
+        out = subprocess.check_output(["python3", SKILL, "list"], stderr=subprocess.DEVNULL).decode("utf-8", "ignore")
+        arr = json.loads(out)
+    except Exception:
+        return ""
+    # 우선순위: 메인 목록창(제목=카카오톡) > 로그인창 > 첫 카카오창
+    for w in arr:
+        if w.get("app") == "카카오톡" and w.get("title") == "카카오톡":
+            return str(w.get("id"))
+    for w in arr:
+        if w.get("app") == "카카오톡" and w.get("title") == "로그인":
+            return str(w.get("id"))
+    for w in arr:
+        if w.get("app") == "카카오톡":
+            return str(w.get("id"))
+    return ""
+
+
+def main():
+    wid = _resolve_main_window_id()
+    if not wid:
+        print("[]")
+        return
+    try:
+        out = subprocess.check_output(["python3", SKILL, "screenshot", "카카오톡", "--id", wid], stderr=subprocess.DEVNULL).decode("utf-8", "ignore")
         obj = json.loads(out)
     except Exception:
         print("[]")

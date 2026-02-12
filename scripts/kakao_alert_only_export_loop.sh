@@ -12,17 +12,17 @@ X=237
 Y_LIST=(120 236 350 465 580 696 812 928)
 HAMBURGER_X=762
 HAMBURGER_Y=91
-SAVE_CONFIRM_X=1213
+SAVE_CONFIRM_X=1206
 SAVE_CONFIRM_Y=329
-DONE_X=1067
-DONE_Y=325
+DONE_X=1075
+DONE_Y=323
 # ENTRY_CLICK_ABS: x=222 y=126
 
 # user-validated settings/export coordinates
-SETTINGS_MENU_X=849
-SETTINGS_MENU_Y=154
-SAVE_BTN_X=1010
-SAVE_BTN_Y=192
+SETTINGS_MENU_X=845
+SETTINGS_MENU_Y=157
+SAVE_BTN_X=1000
+SAVE_BTN_Y=191
 CONFIRM_BTN_X=1068
 CONFIRM_BTN_Y=320
 
@@ -106,13 +106,18 @@ PY
 }
 
 alert_rows_json() {
+  osascript -e 'tell application "KakaoTalk" to activate' >/dev/null 2>&1 || true
   python3 - <<'PY'
 import json,subprocess,re
 from PIL import Image
 Y=[120,236,350,465,580,696,812,928]
 cmd=['python3','/Users/sanghun/.openclaw/workspace/skills/mac-use/scripts/mac_use.py','screenshot','카카오톡']
-out=subprocess.check_output(cmd).decode('utf-8','ignore')
-obj=json.loads(out)
+try:
+    out=subprocess.check_output(cmd).decode('utf-8','ignore')
+    obj=json.loads(out)
+except Exception:
+    print('[]')
+    raise SystemExit
 rows=set()
 
 # 1) 빨간 배지 색상 검출
@@ -153,11 +158,16 @@ PY
 }
 
 top_signature() {
+  osascript -e 'tell application "KakaoTalk" to activate' >/dev/null 2>&1 || true
   python3 - <<'PY'
 import json,subprocess,re
 cmd=['python3','/Users/sanghun/.openclaw/workspace/skills/mac-use/scripts/mac_use.py','screenshot','카카오톡']
-out=subprocess.check_output(cmd).decode('utf-8','ignore')
-obj=json.loads(out)
+try:
+    out=subprocess.check_output(cmd).decode('utf-8','ignore')
+    obj=json.loads(out)
+except Exception:
+    print('')
+    raise SystemExit
 # top row signature from elements near first row region
 parts=[]
 for e in obj.get('elements',[]):

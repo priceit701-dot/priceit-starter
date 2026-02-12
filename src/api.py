@@ -1040,6 +1040,11 @@ def admin_seller():
     return _serve_html("admin_seller.html")
 
 
+@app.get("/admin/seller-v2", response_class=HTMLResponse)
+def admin_seller_v2():
+    return _serve_html("admin_seller_v2.html")
+
+
 if __name__ == "__main__":
     import uvicorn
 

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SKILL="/Users/sanghun/.openclaw/workspace/skills/mac-use/scripts/mac_use.py"
-MAIN_ID="5113"
+MAIN_ID=""
 LOG="/Users/sanghun/.openclaw/workspace/priceit-starter/logs/kakao_alert_only_export_loop.log"
 STATE="/Users/sanghun/.openclaw/workspace/priceit-starter/logs/kakao_alert_only_state.json"
 TOP_FALLBACK_Y=120
@@ -28,6 +28,17 @@ LAST_ROOM_TS_STATE="/Users/sanghun/.openclaw/workspace/priceit-starter/logs/kaka
 [[ "${1:-}" == "--once" ]] && ONCE=1
 
 mkdir -p "$(dirname "$LOG")"
+
+resolve_main_id() {
+  python3 - <<'PY'
+import json,subprocess
+arr=json.loads(subprocess.check_output(['python3','/Users/sanghun/.openclaw/workspace/skills/mac-use/scripts/mac_use.py','list']).decode())
+for w in arr:
+    if w.get('app')=='카카오톡' and w.get('title') in ('카카오톡','로그인',''):
+        print(w.get('id'))
+        break
+PY
+}
 
 settings_window_id() {
   python3 - <<'PY'
@@ -206,6 +217,13 @@ echo "[$(date '+%F %T')] start alert-only export loop" >> "$LOG"
 last_room=""
 
 while true; do
+  MAIN_ID="$(resolve_main_id || true)"
+  if [[ -z "$MAIN_ID" ]]; then
+    echo "[$(date '+%F %T')] WARN main_window_id_not_found" >> "$LOG"
+    [[ $ONCE -eq 1 ]] && break
+    sleep "$INTERVAL"
+    continue
+  fi
   rows_json="$(alert_rows_json || echo '[]')"
   top_sig="$(top_signature || true)"
   last_sig=""

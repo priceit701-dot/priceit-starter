@@ -8,13 +8,20 @@ STATE="/Users/sanghun/.openclaw/workspace/priceit-starter/logs/kakao_alert_only_
 TOP_FALLBACK_Y=120
 
 # verified click line coordinates (openchat list)
-X=430
+X=237
 Y_LIST=(120 236 350 465 580 696 812 928)
+HAMBURGER_X=762
+HAMBURGER_Y=91
+SAVE_CONFIRM_X=1213
+SAVE_CONFIRM_Y=329
+DONE_X=1067
+DONE_Y=325
+# ENTRY_CLICK_ABS: x=222 y=126
 
 # user-validated settings/export coordinates
-SETTINGS_MENU_X=95
-SETTINGS_MENU_Y=300
-SAVE_BTN_X=1002
+SETTINGS_MENU_X=849
+SETTINGS_MENU_Y=154
+SAVE_BTN_X=1010
 SAVE_BTN_Y=192
 CONFIRM_BTN_X=1068
 CONFIRM_BTN_Y=320
@@ -93,25 +100,46 @@ PY
 alert_rows_json() {
   python3 - <<'PY'
 import json,subprocess,re
+from PIL import Image
 Y=[120,236,350,465,580,696,812,928]
 cmd=['python3','/Users/sanghun/.openclaw/workspace/skills/mac-use/scripts/mac_use.py','screenshot','카카오톡']
 out=subprocess.check_output(cmd).decode('utf-8','ignore')
 obj=json.loads(out)
 rows=set()
+
+# 1) 빨간 배지 색상 검출
+img_path=obj.get('file')
+if img_path:
+    try:
+        im=Image.open(img_path).convert('RGB')
+        w,h=im.size
+        x1=int(w*0.72); x2=int(w*0.98)
+        for yy in Y:
+            y1=max(0,yy-34); y2=min(h-1,yy+34)
+            red=0
+            for y in range(y1,y2+1,2):
+                for x in range(x1,x2+1,2):
+                    r,g,b=im.getpixel((x,y))
+                    if r>185 and g<125 and b<125 and (r-g)>55 and (r-b)>55:
+                        red += 1
+            if red >= 18:
+                rows.add(yy)
+    except Exception:
+        pass
+
+# 2) OCR 보조
 for e in obj.get('elements',[]):
     t=str(e.get('text','')).strip()
     x,y=e.get('at',[0,0])
-    # unread badge OCR(강한 트리거): 오픈채팅 목록 각 방 우측의 빨간 숫자만 사용
-    # 제외: 좌측 카카오 로고 배지, 상단 채팅/오픈채팅 탭 배지
     has_colon = ':' in t
     in_room_list_y = 90 <= int(y) <= 950
     nums = [int(g) for g in re.findall(r'\d+', t) if g.isdigit()]
-    # unread badge: 작은 숫자(1~300), 멤버수(1000+) 배제
     has_badge = any(1 <= v <= 300 for v in nums)
     if has_badge and (not has_colon) and int(x)>=580 and in_room_list_y:
         nearest=min(Y,key=lambda yy:abs(yy-int(y)))
         if abs(nearest-int(y))<=45:
             rows.add(nearest)
+
 print(json.dumps(sorted(rows)))
 PY
 }
@@ -158,6 +186,8 @@ export_one_row() {
   local start_ts
   start_ts=$(date +%s)
 
+  python3 "$SKILL" click --app 카카오톡 "$HAMBURGER_X" "$HAMBURGER_Y" >/dev/null 2>&1 || true
+  sleep 0.2
   python3 "$SKILL" key --app 카카오톡 opt+cmd+, >/dev/null 2>&1 || true
   sleep 0.8
   local sid
@@ -171,9 +201,9 @@ export_one_row() {
     sleep 0.6
   fi
 
-  python3 "$SKILL" key --app 카카오톡 return >/dev/null 2>&1 || true
-  sleep 0.35
-  python3 "$SKILL" key --app 카카오톡 return >/dev/null 2>&1 || true
+  python3 "$SKILL" click --app 카카오톡 "$SAVE_CONFIRM_X" "$SAVE_CONFIRM_Y" >/dev/null 2>&1 || true
+  sleep 0.4
+  python3 "$SKILL" click --app 카카오톡 "$DONE_X" "$DONE_Y" >/dev/null 2>&1 || true
   sleep 0.8
 
   local newf

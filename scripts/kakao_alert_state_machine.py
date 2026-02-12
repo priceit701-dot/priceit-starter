@@ -82,11 +82,16 @@ def resolve_main_window() -> dict | None:
 
 def resolve_settings_window(main_id: int | str) -> dict | None:
     arr = windows()
+    # 1) 제목 힌트 우선
     for w in arr:
         if w.get("app") == "카카오톡" and str(w.get("id")) != str(main_id):
             t = str(w.get("title") or "")
-            if t in ("Window", "채팅방 설정") or "설정" in t:
+            if t in ("Window", "채팅방 설정") or "설정" in t or "대화" in t:
                 return w
+    # 2) 제목이 비어 있어도 메인 제외 카카오 보조창이면 허용
+    for w in arr:
+        if w.get("app") == "카카오톡" and str(w.get("id")) != str(main_id):
+            return w
     return None
 
 
@@ -149,11 +154,15 @@ def nearest_room_by_y(rows: list[tuple[int, int]], y: int) -> tuple[int, int] | 
 
 def room_title_non_main(main_id: int | str) -> str:
     arr = windows()
+    banned = {"", "Window", "저장", "완료", "확인", "취소", "카카오톡", "로그인"}
     for w in arr:
         if w.get("app") == "카카오톡" and str(w.get("id")) != str(main_id):
-            t = str(w.get("title") or "")
-            if t and t != "Window":
-                return t
+            t = str(w.get("title") or "").strip()
+            if t in banned:
+                continue
+            if len(t) <= 2:
+                continue
+            return t
     return ""
 
 
@@ -190,7 +199,8 @@ def run_once() -> None:
     if not detected:
         return
 
-    for ry in detected:
+    # 학습/안정화 단계: 한 번에 1개 행만 처리
+    for ry in detected[:1]:
         room_xy = nearest_room_by_y(coords.rooms, ry)
         if not room_xy:
             continue
@@ -201,32 +211,48 @@ def run_once() -> None:
         time.sleep(0.08)
         abs_click(x, y)
         key("return")
-        time.sleep(0.8)
+        time.sleep(0.9)
 
         room = room_title_non_main(main_id)
+        log(f"ROOM_OPENED y={ry} room={room}")
         start = int(time.time())
 
         # settings -> save flow
         abs_click(*coords.hamburger)
-        time.sleep(0.2)
+        time.sleep(0.25)
         key("opt+cmd+,")
-        time.sleep(0.8)
 
-        sw = resolve_settings_window(main_id)
+        sw = None
+        for _ in range(8):
+            time.sleep(0.25)
+            sw = resolve_settings_window(main_id)
+            if sw:
+                break
+
         if not sw:
             log(f"WARN settings_window_not_found room={room}")
             continue
+        log(f"SETTINGS_OPENED y={ry} room={room} wid={sw.get('id')}")
 
         abs_click(*coords.manage)
-        time.sleep(0.3)
+        log(f"MANAGE_CLICKED y={ry} room={room}")
+        time.sleep(0.4)
         abs_click(*coords.textsave)
-        time.sleep(0.45)
+        log(f"TEXT_SAVE_CLICKED y={ry} room={room}")
+        time.sleep(0.55)
         abs_click(*coords.save)
-        time.sleep(0.45)
+        log(f"SAVE_CLICKED y={ry} room={room}")
+        time.sleep(0.55)
         abs_click(*coords.done)
-        time.sleep(0.8)
+        log(f"DONE_CLICKED y={ry} room={room}")
+        time.sleep(0.9)
 
-        newf = latest_export_after(start)
+        newf = None
+        for _ in range(8):
+            newf = latest_export_after(start)
+            if newf:
+                break
+            time.sleep(0.35)
         if newf:
             log(f"OK y={ry} room={room} file={newf}")
             close_chat_window(main_id)

@@ -88,8 +88,11 @@ rows=set()
 for e in obj.get('elements',[]):
     t=str(e.get('text','')).strip()
     x,y=e.get('at',[0,0])
-    # unread badge OCR: usually short number at right area
-    if re.fullmatch(r'\d{1,3}', t) and int(x)>=680:
+    # unread badge OCR: right area + 짧은 숫자 토큰(약간의 OCR 잡음 허용)
+    has_digit = any(ch.isdigit() for ch in t)
+    has_colon = ':' in t
+    short_like = len(t) <= 4
+    if has_digit and (not has_colon) and short_like and int(x)>=680:
         nearest=min(Y,key=lambda yy:abs(yy-int(y)))
         if abs(nearest-int(y))<=45:
             rows.add(nearest)

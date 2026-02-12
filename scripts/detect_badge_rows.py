@@ -1,41 +1,53 @@
 #!/usr/bin/env python3
 import json
-import re
 import subprocess
 from pathlib import Path
 
 from PIL import Image
-import pytesseract
 
-Y_ROWS = [126, 205, 269, 344, 417, 490, 563, 636]
+# screen-space anchor rows (from coordinate lock)
+ROW_Y_SCREEN = [126, 205, 269, 344, 417, 490, 563, 636]
 SKILL = "/Users/sanghun/.openclaw/workspace/skills/mac-use/scripts/mac_use.py"
 
 
-def nearest_row(y: int):
-    n = min(Y_ROWS, key=lambda yy: abs(yy - y))
-    return n if abs(n - y) <= 45 else None
-
-
-def _resolve_main_window_id() -> str:
+def _windows():
     try:
         out = subprocess.check_output(["python3", SKILL, "list"], stderr=subprocess.DEVNULL).decode("utf-8", "ignore")
-        arr = json.loads(out)
+        return json.loads(out)
     except Exception:
-        return ""
+        return []
+
+
+def _main_window():
+    arr = _windows()
     for w in arr:
         if w.get("app") == "카카오톡" and w.get("title") == "카카오톡":
-            return str(w.get("id"))
+            return w
     for w in arr:
         if w.get("app") == "카카오톡":
-            return str(w.get("id"))
-    return ""
+            return w
+    return None
+
+
+def _screen_y_to_canvas_y(y_screen: int, win_y: int, win_h: int) -> int:
+    # mac_use screenshot canvas is 1000x1000 (aspect-fit), Kakao list window is tall so y uses full height
+    rel = (y_screen - win_y) / max(1, win_h)
+    return int(max(0, min(999, rel * 1000)))
+
+
+def is_red(r: int, g: int, b: int) -> bool:
+    return r > 165 and g < 130 and b < 130 and (r - g) > 35 and (r - b) > 35
 
 
 def main():
-    wid = _resolve_main_window_id()
-    if not wid:
+    mw = _main_window()
+    if not mw:
         print("[]")
         return
+
+    wid = str(mw.get("id"))
+    win_y = int(mw.get("y", 0))
+    win_h = int(mw.get("h", 1))
 
     try:
         out = subprocess.check_output(["python3", SKILL, "screenshot", "카카오톡", "--id", wid], stderr=subprocess.DEVNULL).decode("utf-8", "ignore")
@@ -44,52 +56,32 @@ def main():
         print("[]")
         return
 
-    vision_rows = set()
-    tesser_rows = set()
-
-    # Vision OCR 숫자: 오른쪽 배지 영역만
-    for e in obj.get("elements", []):
-        t = str(e.get("text", "")).strip()
-        x, y = e.get("at", [0, 0])
-        if not (90 <= int(y) <= 950):
-            continue
-        if ":" in t:
-            continue
-        nums = [int(g) for g in re.findall(r"\d+", t) if g.isdigit()]
-        if any(1 <= v <= 300 for v in nums) and int(x) >= 700:
-            n = nearest_row(int(y))
-            if n is not None:
-                vision_rows.add(n)
-
     img_path = obj.get("file")
-    if img_path and Path(img_path).exists():
-        try:
-            im = Image.open(img_path).convert("RGB")
-            w, h = im.size
-            for yy in Y_ROWS:
-                y1, y2 = max(0, yy - 26), min(h - 1, yy + 26)
-                x1, x2 = int(w * 0.83), int(w * 0.985)
-                roi = im.crop((x1, y1, x2, y2)).convert("L")
-                roi = roi.resize((roi.width * 3, roi.height * 3))
-                roi = roi.point(lambda p: 255 if p > 150 else 0)
+    if not img_path or not Path(img_path).exists():
+        print("[]")
+        return
 
-                txt = pytesseract.image_to_string(
-                    roi,
-                    config="--oem 1 --psm 7 -c tessedit_char_whitelist=0123456789",
-                )
-                txt = re.sub(r"\D", "", txt or "")
-                if not txt:
-                    continue
-                try:
-                    v = int(txt)
-                except Exception:
-                    continue
-                if 1 <= v <= 300:
-                    tesser_rows.add(yy)
-        except Exception:
-            pass
+    im = Image.open(img_path).convert("RGB")
+    w, h = im.size
 
-    rows = sorted(vision_rows | tesser_rows)
+    # badge zone on 1000 canvas: right side of list panel
+    x1, x2 = int(w * 0.74), int(w * 0.93)
+
+    # convert screen anchors -> canvas anchors
+    row_canvas = [(_screen_y_to_canvas_y(y, win_y, win_h), y) for y in ROW_Y_SCREEN]
+
+    rows = []
+    for cy, sy in row_canvas:
+        y1, y2 = max(0, cy - 22), min(h - 1, cy + 22)
+        red = 0
+        for py in range(y1, y2 + 1, 2):
+            for px in range(x1, x2 + 1, 2):
+                r, g, b = im.getpixel((px, py))
+                if is_red(r, g, b):
+                    red += 1
+        if red >= 18:
+            rows.append(sy)
+
     print(json.dumps(rows))
 
 

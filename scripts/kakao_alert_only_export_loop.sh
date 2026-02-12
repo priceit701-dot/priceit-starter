@@ -51,10 +51,18 @@ PY
 
 settings_window_id() {
   python3 - <<'PY'
-import json,subprocess
+import json,subprocess,os
+main_id=os.environ.get('MAIN_ID','')
 arr=json.loads(subprocess.check_output(['python3','/Users/sanghun/.openclaw/workspace/skills/mac-use/scripts/mac_use.py','list']).decode())
+# 우선순위: 설정 관련 제목 > 메인 제외 카카오 윈도우
 for w in arr:
-    if w.get('app')=='카카오톡' and w.get('title')=='Window':
+    if w.get('app')=='카카오톡' and str(w.get('id'))!=str(main_id):
+        t=str(w.get('title') or '')
+        if ('설정' in t) or ('Window'==t) or ('대화' in t):
+            print(w.get('id'))
+            raise SystemExit
+for w in arr:
+    if w.get('app')=='카카오톡' and str(w.get('id'))!=str(main_id):
         print(w.get('id'))
         break
 PY
@@ -191,7 +199,7 @@ export_one_row() {
   python3 "$SKILL" key --app 카카오톡 opt+cmd+, >/dev/null 2>&1 || true
   sleep 0.8
   local sid
-  sid="$(settings_window_id || true)"
+  sid="$(MAIN_ID="$MAIN_ID" settings_window_id || true)"
   if [[ -n "$sid" ]]; then
     python3 "$SKILL" click --app 카카오톡 --id "$sid" "$SETTINGS_MENU_X" "$SETTINGS_MENU_Y" >/dev/null 2>&1 || true
     sleep 0.35
@@ -199,6 +207,8 @@ export_one_row() {
     sleep 0.5
     python3 "$SKILL" click --app 카카오톡 --id "$sid" "$CONFIRM_BTN_X" "$CONFIRM_BTN_Y" >/dev/null 2>&1 || true
     sleep 0.6
+  else
+    echo "[$(date '+%F %T')] WARN settings_window_not_found room=$room" >> "$LOG"
   fi
 
   python3 "$SKILL" click --app 카카오톡 "$SAVE_CONFIRM_X" "$SAVE_CONFIRM_Y" >/dev/null 2>&1 || true

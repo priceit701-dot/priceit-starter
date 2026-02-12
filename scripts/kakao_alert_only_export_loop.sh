@@ -19,8 +19,12 @@ SAVE_BTN_Y=365
 
 INTERVAL=60
 ONCE=0
-# OCR이 배지를 놓치는 경우를 대비해 비어있으면 8개 전수 처리
+# OCR이 배지를 놓치는 경우를 대비한 fallback 동작
 ALL_WHEN_EMPTY=1
+DEDUP_WINDOW_SEC=600
+LAST_FILE_STATE="/Users/sanghun/.openclaw/workspace/priceit-starter/logs/kakao_alert_only_last_file.txt"
+LAST_ROOM_STATE="/Users/sanghun/.openclaw/workspace/priceit-starter/logs/kakao_alert_only_last_room.txt"
+LAST_ROOM_TS_STATE="/Users/sanghun/.openclaw/workspace/priceit-starter/logs/kakao_alert_only_last_room_ts.txt"
 [[ "${1:-}" == "--once" ]] && ONCE=1
 
 mkdir -p "$(dirname "$LOG")"
@@ -158,7 +162,29 @@ export_one_row() {
   local newf
   newf="$(latest_kakao_file_after "$start_ts" || true)"
   if [[ -n "$newf" ]]; then
-    echo "[$(date '+%F %T')] OK y=$y room=$room file=$newf" >> "$LOG"
+    local new_path
+    new_path="$(echo "$newf" | awk -F'\t' '{print $3}')"
+    local last_path=""
+    [[ -f "$LAST_FILE_STATE" ]] && last_path="$(cat "$LAST_FILE_STATE" 2>/dev/null || true)"
+
+    local now_ts
+    now_ts=$(date +%s)
+    local prev_room=""
+    local prev_room_ts=0
+    [[ -f "$LAST_ROOM_STATE" ]] && prev_room="$(cat "$LAST_ROOM_STATE" 2>/dev/null || true)"
+    [[ -f "$LAST_ROOM_TS_STATE" ]] && prev_room_ts="$(cat "$LAST_ROOM_TS_STATE" 2>/dev/null || echo 0)"
+
+    # 중복 방지: 같은 파일 경로 반복 또는 같은 방을 짧은 시간 내 반복 수집하면 DUP로 처리
+    if [[ -n "$new_path" && "$new_path" == "$last_path" ]]; then
+      echo "[$(date '+%F %T')] DUP y=$y room=$room file=$newf" >> "$LOG"
+    elif [[ -n "$room" && "$room" == "$prev_room" && $((now_ts-prev_room_ts)) -lt $DEDUP_WINDOW_SEC ]]; then
+      echo "[$(date '+%F %T')] DUP_WINDOW y=$y room=$room file=$newf" >> "$LOG"
+    else
+      echo "$new_path" > "$LAST_FILE_STATE"
+      echo "$room" > "$LAST_ROOM_STATE"
+      echo "$now_ts" > "$LAST_ROOM_TS_STATE"
+      echo "[$(date '+%F %T')] OK y=$y room=$room file=$newf" >> "$LOG"
+    fi
   else
     echo "[$(date '+%F %T')] MISS y=$y room=$room file=NONE" >> "$LOG"
   fi
@@ -186,10 +212,10 @@ while true; do
     echo "[$(date '+%F %T')] fallback_top_change top_sig='$top_sig'" >> "$LOG"
   fi
 
-  # fallback 2: 여전히 비어있으면 8개 전수 처리(배지 누락 대비)
-  if [[ "$rows_json" == "[]" && "$ALL_WHEN_EMPTY" == "1" ]]; then
+  # fallback 2: 여전히 비어있고 top 변경이 있을 때만 8개 전수 처리(중복 최소화)
+  if [[ "$rows_json" == "[]" && "$ALL_WHEN_EMPTY" == "1" && -n "$top_sig" && "$top_sig" != "$last_sig" ]]; then
     rows_json="[120,236,350,465,580,696,812,928]"
-    echo "[$(date '+%F %T')] fallback_all_rows" >> "$LOG"
+    echo "[$(date '+%F %T')] fallback_all_rows_on_top_change" >> "$LOG"
   fi
 
   echo "$top_sig" > "$STATE"

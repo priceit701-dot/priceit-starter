@@ -8,14 +8,16 @@ STATE="/Users/sanghun/.openclaw/workspace/priceit-starter/logs/kakao_alert_only_
 TOP_FALLBACK_Y=120
 
 # verified click line coordinates (openchat list)
-X=520
+X=430
 Y_LIST=(120 236 350 465 580 696 812 928)
 
-# verified settings coordinates
+# user-validated settings/export coordinates
 SETTINGS_MENU_X=95
 SETTINGS_MENU_Y=300
-SAVE_BTN_X=380
-SAVE_BTN_Y=365
+SAVE_BTN_X=1002
+SAVE_BTN_Y=192
+CONFIRM_BTN_X=1068
+CONFIRM_BTN_Y=320
 
 INTERVAL=60
 ONCE=0
@@ -101,11 +103,12 @@ for e in obj.get('elements',[]):
     x,y=e.get('at',[0,0])
     # unread badge OCR(강한 트리거): 오픈채팅 목록 각 방 우측의 빨간 숫자만 사용
     # 제외: 좌측 카카오 로고 배지, 상단 채팅/오픈채팅 탭 배지
-    has_digit = any(ch.isdigit() for ch in t)
     has_colon = ':' in t
-    short_like = len(t) <= 4
     in_room_list_y = 90 <= int(y) <= 950
-    if has_digit and (not has_colon) and short_like and int(x)>=680 and in_room_list_y:
+    nums = [int(g) for g in re.findall(r'\d+', t) if g.isdigit()]
+    # unread badge: 작은 숫자(1~300), 멤버수(1000+) 배제
+    has_badge = any(1 <= v <= 300 for v in nums)
+    if has_badge and (not has_colon) and int(x)>=580 and in_room_list_y:
         nearest=min(Y,key=lambda yy:abs(yy-int(y)))
         if abs(nearest-int(y))<=45:
             rows.add(nearest)
@@ -135,10 +138,7 @@ export_one_row() {
   local y="$1"
   local last_room="$2"
 
-  python3 "$SKILL" key --app 카카오톡 cmd+w >/dev/null 2>&1 || true
   sleep 0.2
-  python3 "$SKILL" key --app 카카오톡 cmd+w >/dev/null 2>&1 || true
-  sleep 0.3
 
   python3 "$SKILL" click --app 카카오톡 --id "$MAIN_ID" "$X" "$y" >/dev/null 2>&1 || true
   python3 "$SKILL" key --app 카카오톡 return >/dev/null 2>&1 || true
@@ -148,7 +148,6 @@ export_one_row() {
   room="$(current_room_title || true)"
   if [[ -n "$room" && "$room" == "$last_room" ]]; then
     local y2=$((y+18))
-    python3 "$SKILL" key --app 카카오톡 cmd+w >/dev/null 2>&1 || true
     sleep 0.2
     python3 "$SKILL" click --app 카카오톡 --id "$MAIN_ID" "$X" "$y2" >/dev/null 2>&1 || true
     python3 "$SKILL" key --app 카카오톡 return >/dev/null 2>&1 || true
@@ -167,7 +166,9 @@ export_one_row() {
     python3 "$SKILL" click --app 카카오톡 --id "$sid" "$SETTINGS_MENU_X" "$SETTINGS_MENU_Y" >/dev/null 2>&1 || true
     sleep 0.35
     python3 "$SKILL" click --app 카카오톡 --id "$sid" "$SAVE_BTN_X" "$SAVE_BTN_Y" >/dev/null 2>&1 || true
-    sleep 0.7
+    sleep 0.5
+    python3 "$SKILL" click --app 카카오톡 --id "$sid" "$CONFIRM_BTN_X" "$CONFIRM_BTN_Y" >/dev/null 2>&1 || true
+    sleep 0.6
   fi
 
   python3 "$SKILL" key --app 카카오톡 return >/dev/null 2>&1 || true
@@ -205,9 +206,6 @@ export_one_row() {
     echo "[$(date '+%F %T')] MISS y=$y room=$room file=NONE" >> "$LOG"
   fi
 
-  python3 "$SKILL" key --app 카카오톡 cmd+w >/dev/null 2>&1 || true
-  sleep 0.2
-  python3 "$SKILL" key --app 카카오톡 cmd+w >/dev/null 2>&1 || true
   sleep 0.2
 
   echo "$room"

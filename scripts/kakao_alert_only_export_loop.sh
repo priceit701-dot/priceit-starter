@@ -19,8 +19,8 @@ SAVE_BTN_Y=365
 
 INTERVAL=60
 ONCE=0
-# OCR이 배지를 놓치는 경우를 대비한 fallback 동작
-ALL_WHEN_EMPTY=1
+# 엄격 모드: 빨간 배지 감지 시에만 접근
+ALL_WHEN_EMPTY=0
 DEDUP_WINDOW_SEC=600
 LAST_FILE_STATE="/Users/sanghun/.openclaw/workspace/priceit-starter/logs/kakao_alert_only_last_file.txt"
 LAST_ROOM_STATE="/Users/sanghun/.openclaw/workspace/priceit-starter/logs/kakao_alert_only_last_room.txt"
@@ -206,17 +206,7 @@ while true; do
   last_sig=""
   [[ -f "$STATE" ]] && last_sig="$(cat "$STATE" 2>/dev/null || true)"
 
-  # fallback 1: badge OCR가 비어도 top row가 바뀌면 top 수집
-  if [[ "$rows_json" == "[]" && -n "$top_sig" && "$top_sig" != "$last_sig" ]]; then
-    rows_json="[$TOP_FALLBACK_Y]"
-    echo "[$(date '+%F %T')] fallback_top_change top_sig='$top_sig'" >> "$LOG"
-  fi
-
-  # fallback 2: 여전히 비어있고 top 변경이 있을 때만 8개 전수 처리(중복 최소화)
-  if [[ "$rows_json" == "[]" && "$ALL_WHEN_EMPTY" == "1" && -n "$top_sig" && "$top_sig" != "$last_sig" ]]; then
-    rows_json="[120,236,350,465,580,696,812,928]"
-    echo "[$(date '+%F %T')] fallback_all_rows_on_top_change" >> "$LOG"
-  fi
+  # 엄격 모드: 빨간 배지 감지가 없으면 접근하지 않음
 
   echo "$top_sig" > "$STATE"
   echo "[$(date '+%F %T')] alert_rows=$rows_json" >> "$LOG"

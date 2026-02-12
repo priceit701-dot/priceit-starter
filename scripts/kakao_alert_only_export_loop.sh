@@ -107,54 +107,7 @@ PY
 
 alert_rows_json() {
   osascript -e 'tell application "KakaoTalk" to activate' >/dev/null 2>&1 || true
-  python3 - <<'PY'
-import json,subprocess,re
-from PIL import Image
-Y=[120,236,350,465,580,696,812,928]
-cmd=['python3','/Users/sanghun/.openclaw/workspace/skills/mac-use/scripts/mac_use.py','screenshot','카카오톡']
-try:
-    out=subprocess.check_output(cmd).decode('utf-8','ignore')
-    obj=json.loads(out)
-except Exception:
-    print('[]')
-    raise SystemExit
-rows=set()
-
-# 1) 빨간 배지 색상 검출
-img_path=obj.get('file')
-if img_path:
-    try:
-        im=Image.open(img_path).convert('RGB')
-        w,h=im.size
-        x1=int(w*0.72); x2=int(w*0.98)
-        for yy in Y:
-            y1=max(0,yy-34); y2=min(h-1,yy+34)
-            red=0
-            for y in range(y1,y2+1,2):
-                for x in range(x1,x2+1,2):
-                    r,g,b=im.getpixel((x,y))
-                    if r>185 and g<125 and b<125 and (r-g)>55 and (r-b)>55:
-                        red += 1
-            if red >= 18:
-                rows.add(yy)
-    except Exception:
-        pass
-
-# 2) OCR 보조
-for e in obj.get('elements',[]):
-    t=str(e.get('text','')).strip()
-    x,y=e.get('at',[0,0])
-    has_colon = ':' in t
-    in_room_list_y = 90 <= int(y) <= 950
-    nums = [int(g) for g in re.findall(r'\d+', t) if g.isdigit()]
-    has_badge = any(1 <= v <= 300 for v in nums)
-    if has_badge and (not has_colon) and int(x)>=580 and in_room_list_y:
-        nearest=min(Y,key=lambda yy:abs(yy-int(y)))
-        if abs(nearest-int(y))<=45:
-            rows.add(nearest)
-
-print(json.dumps(sorted(rows)))
-PY
+  python3 /Users/sanghun/.openclaw/workspace/priceit-starter/scripts/detect_badge_rows.py 2>/dev/null || echo '[]'
 }
 
 top_signature() {

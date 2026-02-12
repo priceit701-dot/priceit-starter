@@ -5,6 +5,7 @@ SKILL="/Users/sanghun/.openclaw/workspace/skills/mac-use/scripts/mac_use.py"
 MAIN_ID="3052"
 LOG="/Users/sanghun/.openclaw/workspace/priceit-starter/logs/kakao_alert_only_export_loop.log"
 STATE="/Users/sanghun/.openclaw/workspace/priceit-starter/logs/kakao_alert_only_state.json"
+TOP_FALLBACK_Y=120
 
 # verified click line coordinates (openchat list)
 X=520
@@ -81,12 +82,30 @@ rows=set()
 for e in obj.get('elements',[]):
     t=str(e.get('text','')).strip()
     x,y=e.get('at',[0,0])
-    # red unread badge OCR pattern: number only, x on far right, no colon
+    # unread badge OCR: usually short number at right area
     if re.fullmatch(r'\d{1,3}', t) and int(x)>=680:
         nearest=min(Y,key=lambda yy:abs(yy-int(y)))
         if abs(nearest-int(y))<=45:
             rows.add(nearest)
 print(json.dumps(sorted(rows)))
+PY
+}
+
+top_signature() {
+  python3 - <<'PY'
+import json,subprocess,re
+cmd=['python3','/Users/sanghun/.openclaw/workspace/skills/mac-use/scripts/mac_use.py','screenshot','카카오톡','--id','3052']
+out=subprocess.check_output(cmd).decode('utf-8','ignore')
+obj=json.loads(out)
+# top row signature from elements near first row region
+parts=[]
+for e in obj.get('elements',[]):
+    t=str(e.get('text','')).strip()
+    x,y=e.get('at',[0,0])
+    if 70 <= int(y) <= 170 and 300 <= int(x) <= 760:
+        if t:
+            parts.append(t)
+print(' | '.join(parts[:4]))
 PY
 }
 
@@ -155,9 +174,19 @@ last_room=""
 
 while true; do
   rows_json="$(alert_rows_json || echo '[]')"
+  top_sig="$(top_signature || true)"
+  last_sig=""
+  [[ -f "$STATE" ]] && last_sig="$(cat "$STATE" 2>/dev/null || true)"
+
+  # fallback: badge OCR가 비어도 top row가 바뀌면 top만 수집
+  if [[ "$rows_json" == "[]" && -n "$top_sig" && "$top_sig" != "$last_sig" ]]; then
+    rows_json="[$TOP_FALLBACK_Y]"
+    echo "[$(date '+%F %T')] fallback_top_change top_sig='$top_sig'" >> "$LOG"
+  fi
+
+  echo "$top_sig" > "$STATE"
   echo "[$(date '+%F %T')] alert_rows=$rows_json" >> "$LOG"
 
-  # iterate rows
   for y in $(python3 - <<PY
 import json
 arr=json.loads('''$rows_json''')
